@@ -55,8 +55,9 @@ Please, do **not** put these data files into Git; they are big. Also do **not** 
     ```
     
     Display the number of lines in each `csv` file.
+    
     <!-- How to print multi variables? -->
-    **Solution:**
+    **Solution:** The code is shown below without evaluation
     ```{bash, eval=FALSE}
     for datafile in /home/203bdata/mimic-iii/*.csv
       do
@@ -77,10 +78,15 @@ Please, do **not** put these data files into Git; they are big. Also do **not** 
     echo $'\nprint number of lines'
     awk 'END { print NR }' $datafile
     
-    echo $'\nnumber of unique patient, list uniq SUBJECT_ID and count row#'
-    tail -n +2 $datafile | awk -F',' '{ print $2 }' | sort | uniq | awk 'END { print NR }'
+    # Idea: get all lines except for title -> use sort collect 
+    #  same values -> use uniq to get the each of them -> count
     
-    # sed '/^$/d' is used to delete empty lines, -d is the sed command to delete a line. ^$ is a regular expression matching only a blank  line, a line start followed by a line end.
+    echo $'\nnumber of unique patient, list uniq SUBJECT_ID and count row#'
+    tail -n +2 $datafile | awk -F',' '{ print $2 }' | sort | uniq |  wc -l
+    
+    # Note: sed '/^$/d' is used to delete empty lines; d is the sed command to delete a line.
+    #  ^$ is a regular expression matching only a blank line, a line start followed by a line end.
+    
     echo $'\nprint Unique value for "INSURANCE"'
     tail -n +2 $datafile | awk -F',' '{ print $10 }' | sort | uniq | sed '/^$/d'
     
@@ -155,19 +161,36 @@ $$
 $$
 for both methods.
 
+    **Solution:** The script `runSim.R` shwon below is also pushed to git
+    ```{bash echo=TRUE}
+    cat runSim.R
+    ```
+
 2. Modify the [`autoSim.R`](https://ucla-biostat203b-2020winter.github.io/slides/02-linux/autoSim.R) script to run simulations with combinations of sample sizes `nVals = seq(100, 500, by=100)` and distributions `distTypes = c("gaussian", "t1", "t5")` and write output to appropriately named files. Use `rep = 50`, and `seed = 203`. 
+
+    **Solution:** The script `runSim.R` shwon below is also pushed to git
+    ```{bash echo=TRUE}
+    cat autoSim.R
+    ```
 
 3. Write an R script to collect simulation results from output files and print average MSEs in a table of format
 
-| $n$ | Method   | Gaussian | $t_5$ | $t_1$ |
-|-----|----------|-------|-------|----------|
-| 100 | PrimeAvg |       |       |          |
-| 100 | SampAvg  |       |       |          |
-| 200 | PrimeAvg |       |       |          |
-| 200 | SampAvg  |       |       |          |
-| 300 | PrimeAvg |       |       |          |
-| 300 | SampAvg  |       |       |          |
-| 400 | PrimeAvg |       |       |          |
-| 400 | SampAvg  |       |       |          |
-| 500 | PrimeAvg |       |       |          |
-| 500 | SampAvg  |       |       |          |
+    | $n$ | Method   | Gaussian | $t_5$ | $t_1$ |
+    |-----|----------|-------|-------|----------|
+    | 100 | PrimeAvg |       |       |          |
+    | 100 | SampAvg  |       |       |          |
+    | 200 | PrimeAvg |       |       |          |
+    | 200 | SampAvg  |       |       |          |
+    | 300 | PrimeAvg |       |       |          |
+    | 300 | SampAvg  |       |       |          |
+    | 400 | PrimeAvg |       |       |          |
+    | 400 | SampAvg  |       |       |          |
+    | 500 | PrimeAvg |       |       |          |
+    | 500 | SampAvg  |       |       |          |
+
+    **Solution:** The script is named as `ReadNTable.R` and is pushed to git. The code and printing result are shown below
+    ```{bash echo=TRUE}
+    cat ReadNTable.R
+    Rscript ReadNTable.R
+    ```
+

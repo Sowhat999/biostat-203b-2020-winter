@@ -60,8 +60,9 @@ for (r in 1:rep){
 }
 
 # Calculate and print MSE two estimator
-print(mseSamAvg/rep)
 print(msePrimAvg/rep)
+print(mseSamAvg/rep)
+
 # sprintf('The MSE of classical sample average estimator is %.4f', mseSamAvg/rep)
 # sprintf('The MSE of primed-indexed average estimator is %.4f', msePrimAvg/rep)
 
