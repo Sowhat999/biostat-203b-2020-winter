@@ -461,7 +461,7 @@ summary {
     awk 'END { print NR }' $datafile
   done</code></pre></li>
 <li><p>Display the first few lines of <code>ADMISSIONS.csv</code>. How many rows are in this data file? How many unique patients (identified by <code>SUBJECT_ID</code>) are in this data file? What are the possible values taken by each of the variable <code>INSURANCE</code>, <code>LANGUAGE</code>, <code>RELIGION</code>, <code>MARITAL_STATUS</code>, and <code>ETHNICITY</code>? How many (unique) patients are Hispanic? (Hint: combine Linux comamnds <code>head</code>, <code>tail</code>, <code>awk</code>, <code>uniq</code>, <code>wc</code>, <code>sort</code> and so on using pipe.)</p>
-<p><strong>Solution:</strong></p>
+<p><strong>Solution:</strong> The answers are separated with empty lines.</p>
 <pre class="bash"><code># set variable for file for convenience
 datafile=/home/203bdata/mimic-iii/ADMISSIONS.csv 
 
@@ -474,10 +474,12 @@ awk 'END { print NR }' $datafile
 # Idea: get all lines except for title -&gt; use sort collect 
 #  same values -&gt; use uniq to get the each of them -&gt; count
 
-echo $'\nnumber of unique patient, list uniq SUBJECT_ID and count row#'
+# list uniq SUBJECT_ID and count row#
+echo $'\nnumber of unique patient (no empty SUBJECT_ID)'
 tail -n +2 $datafile | awk -F',' '{ print $2 }' | sort | uniq |  wc -l
 
-# Note: sed '/^$/d' is used to delete empty lines; d is the sed command to delete a line.
+# Note: empty value shown in some of the column below, and thus 
+# sed '/^$/d' is used to delete empty lines; d is the sed command to delete a line.
 #  ^$ is a regular expression matching only a blank line, a line start followed by a line end.
 
 echo $'\nprint Unique value for &quot;INSURANCE&quot;'
@@ -512,7 +514,7 @@ grep HISPANIC $datafile | awk -F',' '{ print $2 }'| uniq| awk 'END {print NR}'</
 ## print number of lines
 ## 58977
 ## 
-## number of unique patient, list uniq SUBJECT_ID and count row#
+## number of unique patient (no empty SUBJECT_ID)
 ## 46520
 ## 
 ## print Unique value for &quot;INSURANCE&quot;
@@ -913,7 +915,7 @@ Rscript ReadNTable.R</code></pre>
 ## distTypes = c(&quot;gaussian&quot;, &quot;t5&quot;, &quot;t1&quot;)
 ## 
 ## # print the title
-## cat(sprintf('\n\n%5s%10s%10s%10s%10s\n','n','Method','Gaussian','t_5','t_1'))
+## cat(sprintf('\n\n%5s%10s%10s%10s%12s\n','n','Method','Gaussian','t_5','t_1'))
 ## 
 ## # Read txt files with each sample size and type (9 combinations)
 ## for (n in nVals) {    # loop for sample sizes
@@ -930,30 +932,30 @@ Rscript ReadNTable.R</code></pre>
 ##     prtTb[col_n] = newTb[2]
 ##     col_n = col_n + 1
 ##   }
-##   cat(sprintf('%5d%10s%10.3f%10.3f%10.3f\n', n, 'PrimeAvg', prtTb[1,1], prtTb[1,2], prtTb[1,3]))
-##   cat(sprintf('%5d%10s%10.3f%10.3f%10.3f\n', n, 'SampAvg', prtTb[1,1], prtTb[1,2], prtTb[1,3]))
+##   cat(sprintf('%5d%10s%10.6f%10.6f%12.6f\n', n, 'PrimeAvg', prtTb[1,1], prtTb[1,2], prtTb[1,3]))
+##   cat(sprintf('%5d%10s%10.6f%10.6f%12.6f\n', n, 'SampAvg', prtTb[2,1], prtTb[2,2], prtTb[2,3]))
 ## }
-## ── [1mAttaching packages[22m ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──
+## ── [1mAttaching packages[22m ────────────────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──
 ## [32m✓[39m [34mggplot2[39m 3.2.1     [32m✓[39m [34mpurrr  [39m 0.3.3
 ## [32m✓[39m [34mtibble [39m 2.1.3     [32m✓[39m [34mdplyr  [39m 0.8.3
 ## [32m✓[39m [34mtidyr  [39m 1.0.0     [32m✓[39m [34mstringr[39m 1.4.0
 ## [32m✓[39m [34mreadr  [39m 1.3.1     [32m✓[39m [34mforcats[39m 0.4.0
-## ── [1mConflicts[22m ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+## ── [1mConflicts[22m ───────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## [31mx[39m [34mdplyr[39m::[32mfilter()[39m masks [34mstats[39m::filter()
 ## [31mx[39m [34mdplyr[39m::[32mlag()[39m    masks [34mstats[39m::lag()
 ## 
 ## 
-##     n    Method  Gaussian       t_5       t_1
-##   100  PrimeAvg     0.039     0.047    43.727
-##   100   SampAvg     0.039     0.047    43.727
-##   200  PrimeAvg     0.024     0.044    20.915
-##   200   SampAvg     0.024     0.044    20.915
-##   300  PrimeAvg     0.021     0.042   116.397
-##   300   SampAvg     0.021     0.042   116.397
-##   400  PrimeAvg     0.013     0.028    48.291
-##   400   SampAvg     0.013     0.028    48.291
-##   500  PrimeAvg     0.009     0.020   152.809
-##   500   SampAvg     0.009     0.020   152.809</code></pre></li>
+##     n    Method  Gaussian       t_5         t_1
+##   100  PrimeAvg  0.039265  0.047282   43.726720
+##   100   SampAvg  0.011464  0.011321   26.769270
+##   200  PrimeAvg  0.024002  0.043965   20.915320
+##   200   SampAvg  0.005764  0.006574   43.419820
+##   300  PrimeAvg  0.020514  0.042467  116.396700
+##   300   SampAvg  0.004199  0.004421  138.456500
+##   400  PrimeAvg  0.013456  0.027957   48.291490
+##   400   SampAvg  0.002870  0.003923   76.240660
+##   500  PrimeAvg  0.009397  0.019900  152.808500
+##   500   SampAvg  0.002191  0.003111   53.472900</code></pre></li>
 </ol>
 </div>
 
