@@ -155,11 +155,28 @@ Data %>%
 
 ```
 
-*NOTE*: Variables below are uniquely identified by patient/SUBJECTID. Define a variable with unique SUBJECT_ID.
+*NOTE*: Variables below are uniquely identified by patient/SUBJECTID. Define a variable `by-ID` with unique SUBJECT_ID.
 ```{r}
 by_ID <- distinct(Data, SUBJECT_ID, .keep_all = TRUE)
 ```
 
+Insurance:
+```{r}
+by_ID %>%
+  ggplot() + 
+  geom_bar(mapping=aes(INSURANCE, y = ..prop.., group = 1))+
+  labs(x='Insurance Types', y='Percentage')
+```
+
+Language
+```{r}
+by_ID %>%
+  ggplot() + 
+  geom_bar(mapping=aes(x=factor(1), fill=LANGUAGE))+
+  coord_polar("y")
+  # coord_flip()+
+  # labs(x='Language', y='Percentage')
+```
 <!-- Check the data: -->
 <!-- ```{bash} -->
 <!-- head /home/203bdata/mimic-iii/ADMISSIONS.csv -->
