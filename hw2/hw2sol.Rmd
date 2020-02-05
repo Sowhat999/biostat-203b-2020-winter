@@ -62,25 +62,27 @@ Data %>%
   mutate(adm_year = year(ADMITTIME)) %>%
   ggplot() +
   geom_freqpoly(mapping = aes(x=adm_year,stat(count)),binwidth = 1)+
-  scale_x_discrete(limits = seq(min(year(Data$ADMITTIME),na.rm = TRUE),
-                               max(year(Data$ADMITTIME),na.rm = TRUE),5))+
+  scale_x_continuous(breaks = seq(min(year(Data$ADMITTIME),na.rm = TRUE),
+                               max(year(Data$ADMITTIME),na.rm = TRUE),5),
+                     name = "Admission Year (encrypted)") +
   theme(axis.text.x = element_text(angle = 90))
+
+
 ```
 
 Admission month
 ```{r}
-# Data %>%
-#   mutate(adm_month = month(ADMITTIME)) %>%  
-#   ggplot() +
-#   geom_freqpoly(mapping = aes(x=adm_month),binwidth = 1) +
-#   scale_x_discrete(limits =seq(1,12,1)) +
-#   xlim(1,12)#coord_cartesian(xlim = c(1, 12))
+# 
+Data %>%
+  mutate(adm_month = month(ADMITTIME ,label=TRUE)) %>%
+  ggplot() + geom_bar(mapping = aes(x=adm_month)) #+
+  # scale_x_discrete(limits =seq(1,12,1))
 
+# freqpoly
 Data %>%
   mutate(adm_month = month(ADMITTIME)) %>%
-  ggplot() +
-  geom_freqpoly(mapping = aes(x=adm_month),binwidth = 1) +
-  scale_x_discrete(limits =seq(1,12,1))
+  ggplot() +  geom_freqpoly(mapping = aes(x=adm_month),binwidth = 1) +
+  scale_x_continuous(breaks =seq(1,12,1))
 
 # Make x ticks in MMM?
 # Data %>%
@@ -93,15 +95,75 @@ Data %>%
 Admission week day
 ```{r}
 Data %>%
-  mutate(adm_weekday = wday(ADMITTIME)) %>%  #wday
+  mutate(adm_weekday = wday(ADMITTIME, label = TRUE)) %>% 
   ggplot() +
   geom_bar(mapping = aes(x=adm_weekday))
 ```
 
-Check the data:
-```{bash}
-head /home/203bdata/mimic-iii/ADMISSIONS.csv
+Admission hour
+```{r}
+Data %>%
+  mutate(adm_hr = hour(ADMITTIME)) %>% 
+  ggplot() +
+  geom_freqpoly(mapping = aes(x=adm_hr, stat(density)),binwidth = 1)
 ```
+
+Length of hospital stay
+```{r}
+Data %>%
+  mutate(adm_StayTime = (DISCHTIME-ADMITTIME)/60/60) %>% 
+  ggplot() +
+  geom_freqpoly(mapping = aes(x=adm_StayTime, stat(density)),binwidth=1)
+```
+
+Admission type
+```{r}
+Data %>%
+  ggplot() +
+  geom_bar(mapping = aes(x=ADMISSION_TYPE, y = ..prop.., group = 1))
+
+```
+
+
+Number of addmissions per patient
+```{r}
+# by_ID <- group_by(Data,SUBJECT_ID)
+# AdmCounts <- summarise(by_ID, count = n())
+# AdmCounts %>%
+#   ggplot() +
+#   geom_freqpoly(mapping = aes(x=count, stat(density)), binwidth=1)+ 
+#   scale_x_continuous(limits = c(0, 10), breaks = seq(0,10,1),
+#                      name = 'Adm Times per Patient')
+
+# Use pipe only
+Data %>% 
+  group_by(SUBJECT_ID) %>%
+  summarise(count = n()) %>%
+  ggplot() +
+  geom_freqpoly(mapping = aes(x=count, stat(density)), binwidth=1)+ 
+  scale_x_continuous( breaks = seq(0,42,2),
+                     name = 'Adm Times per Patient')
+```
+
+Admission Location
+```{r}
+Data %>%
+  ggplot() +
+  geom_bar(mapping = aes(stringr::str_wrap(ADMISSION_LOCATION,15), y = ..prop.., group = 1) , width=.5) + 
+  coord_flip() +
+  labs(x = 'Admission Location', y = 'Percentage')
+
+```
+
+*NOTE*: Variables below are uniquely identified by patient/SUBJECTID. Define a variable with unique SUBJECT_ID.
+```{r}
+by_ID <- distinct(Data, SUBJECT_ID, .keep_all = TRUE)
+```
+
+<!-- Check the data: -->
+<!-- ```{bash} -->
+<!-- head /home/203bdata/mimic-iii/ADMISSIONS.csv -->
+<!-- ``` -->
 
 
 
@@ -121,7 +183,7 @@ Link the data in `ADMISSION.csv` and `PATIENTS.csv` (<https://mimic.physionet.or
 - gender  
 - age  
 
-## Q4 
+## Q4  
 
 `CHARTEVENTS.csv` (<https://mimic.physionet.org/mimictables/chartevents/>) contains all the charted data available for a patient. During their ICU stay, the primary repository of a patient’s information is their electronic chart. The `ITEMID` variable indicates a single measurement type in the database. The `VALUE` variable is the value measured for `ITEMID`. 
 
