@@ -180,14 +180,14 @@ by_ID %>%
 
 # Remove nan values?
 by_ID %>%
-  filter(LANGUAGE != NaN) %>%
+  filter(!is.na(LANGUAGE)) %>%
   ggplot() + 
   geom_bar(mapping=aes(x=factor(1), fill=LANGUAGE))+
   coord_polar("y")
 
 # bar chart?
 by_ID %>%
-  filter(LANGUAGE != NaN) %>%  # c = filter(by_ID, LANGUAGE!=NaN) worked, c = filter(by_ID, !is.nan(by_ID$LANGUAGE)) didn't work
+  filter(!is.na(LANGUAGE)) %>%  
   ggplot() + 
   geom_bar(mapping=aes(LANGUAGE))+
   coord_flip()+
@@ -224,18 +224,17 @@ by_ID %>%
 
 Death:
 ```{r}
-# filter and add new variable, is.nan(death time) => healthy;  ! is.nan(death time) => dead?
-# by_ID %>%
-#   ggplot() + 
-#   geom_bar(mapping=aes(stringr::str_wrap(ETHNICITY,10), y = ..prop.., group = 1))+
-#   labs(x='Maritial Status', y='Percentage')+
-#   coord_flip()
-```
-<!-- Check the Admission: -->
-<!-- ```{bash} -->
-<!-- head /home/203bdata/mimic-iii/ADMISSIONS.csv -->
-<!-- ``` -->
+# conditionaly mutate new variable: is.nan(death time) => livy;
+# ! is.nan(death time) => dead.
+# ifelse can do conditional mutating
 
+by_ID %>%
+  mutate(LifeStatus = ifelse(is.na(DEATHTIME), 'Live','Dead')) %>%
+  ggplot() +
+  geom_bar(mapping=aes(x = factor(1), fill= LifeStatus))+
+  coord_polar(theta = 'y', direction = 1)+
+  scale_x_discrete(breaks = NULL, name = '')
+```
 
 
 ## Q2
@@ -295,7 +294,7 @@ JointT %>%
 **Solutions:**
 Read data `ICUSTAY.csv`
 ```{r}
-# Read the PATIENTS data
+# Read the ICUSTAY data
 Icustay <-read_csv('/home/203bdata/mimic-iii/ICUSTAYS.csv',
                  col_types = cols(ROW_ID=col_integer(),
                                   SUBJECT_ID = col_integer(),
@@ -351,10 +350,66 @@ Icustay %>%
 
 ```
 
-## Q4  
+## Q4
 
 `CHARTEVENTS.csv` (<https://mimic.physionet.org/mimictables/chartevents/>) contains all the charted data available for a patient. During their ICU stay, the primary repository of a patient’s information is their electronic chart. The `ITEMID` variable indicates a single measurement type in the database. The `VALUE` variable is the value measured for `ITEMID`. 
 
 `D_ITEMS.csv` (<https://mimic.physionet.org/mimictables/d_items/>) is the dictionary for the `ITEMID` in `CHARTEVENTS.csv`. Find potential values of `ITEMID` that correspond to systolic blood pressure, i.e., `LABEL` contains the string `systolic`. 
 
 Compile a tibble that contains the first ICU stay of unique patients, with the patient's demographic information, the first systolic blood pressure measurement during ICU stay, and whether the patient died within 30 days of hospitcal admission.
+
+** Solutions:**
+```{r}
+# Read the CHARTEVENTS data, which has non-default datetime format
+ChartEvent <-read_csv('/home/203bdata/mimic-iii/CHARTEVENTS.csv',
+      col_types = cols(ROW_ID = col_integer(),
+                      SUBJECT_ID = col_integer(),
+                      HADM_ID = col_integer(),
+                      ICUSTAY_ID = col_integer(),
+                      ITEMID = col_integer(),
+                      CHARTTIME = col_datetime(format = "%m/%d/%y %H:%M"),
+                      STORETIME = col_datetime(format = "%m/%d/%y %H:%M"),
+                      CGID = col_integer()
+                      ))
+# Read D_ITEMS data
+D_Items <-read_csv('/home/203bdata/mimic-iii/D_ITEMS.csv',
+                 col_types = cols(ROW_ID = col_integer(),
+                                  ITEMID = col_integer(),
+                                  LABEL = col_character(),
+                                  ABBREVIATION = col_character(),
+                                  DBSOURCE = col_character(),
+                                  LINKSTO = col_character(),
+                                  CATEGORY = col_character(),
+                                  UNITNAME = col_character(),
+                                  PARAM_TYPE = col_character(),
+                                  CONCEPTID = col_character() ))
+
+# Filter to get the systolic items
+SystolicItem <-D_Items %>% filter(str_detect(LABEL, 'systolic'))
+
+# Get all the systolic measurement for patients in ICU
+# Get the patient first systolic meas. with inner join and dinstict
+# Arrange used to get the earliest measurement
+
+# Get all the systolic measurement
+SystolicMeas <- ChartEvent %>% 
+  inner_join(SystolicItem, by = "ITEMID") 
+
+# Get first ICU stay
+FirstIcuStay <- arrange(Icustay, INTIME) %>%
+  distinct(SUBJECT_ID, .keep_all = TRUE)
+
+# Get all systolic measurement in first ICU stay by outjoin, and filter out the
+# measurement did in ICU
+# Only need measurement for ICU patients; Does every ICU patients
+# had systolic measurement?  => no
+FinalTibble <- inner_join(FirstIcuStay, SystolicMeas, by = "SUBJECT_ID") %>%
+  filter(CHARTTIME>INTIME & CHARTTIME<OUTTIME | is.na(CHARTTIME))
+
+
+# %>%
+#   right_join(Icustay, by = "SUBJECT_ID") %>%
+#   arrange(CHARTTIME) %>%  
+#   distinct(SUBJECT_ID, .keep_all = TRUE)
+
+```
