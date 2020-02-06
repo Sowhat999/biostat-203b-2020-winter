@@ -40,12 +40,13 @@ Note it is possible that one patient (uniquely identified by the `SUBJECT_ID`) i
 **Solution:**
 Load packages and Data:
 ```{r} 
-# load packages and check the data
+# load packages
 library(tidyverse)
 library(dplyr)
 library(lubridate)
 library(scales)
 
+# Read ADMISSION.csv
 Admission <- read_csv('/home/203bdata/mimic-iii/ADMISSIONS.csv',
                  col_types = cols(ROW_ID=col_integer(),
                                   SUBJECT_ID = col_integer(),
@@ -57,76 +58,87 @@ Admission <- read_csv('/home/203bdata/mimic-iii/ADMISSIONS.csv',
                                   EDOUTTIME = col_datetime(format = "")) )
 ```
 
-Admission year
+Admission year:
+Every year, there are about 550 admission except for the latest years, which has abnormal low admission numbers. It is possible that the latest data has not been updated yet.
 ```{r}
 Admission %>%
-  mutate(adm_year = year(ADMITTIME)) %>%
+  mutate(adm_year = year(ADMITTIME)) %>% # get year components
   ggplot() +
   geom_freqpoly(mapping = aes(x=adm_year,stat(count)),binwidth = 1)+
+  # Add more ticks and change xtick label style
   scale_x_continuous(breaks = seq(min(year(Admission$ADMITTIME),na.rm = TRUE),
                                max(year(Admission$ADMITTIME),na.rm = TRUE),5),
                      name = "Admission Year (encrypted)") +
   theme(axis.text.x = element_text(angle = 90))
-
-
 ```
 
-Admission month
+Admission month:
+The montly admission is also consistent (around 4750 admissions per month).
 ```{r}
 # 
 Admission %>%
-  mutate(adm_month = month(ADMITTIME ,label=TRUE)) %>%
-  ggplot() + geom_bar(mapping = aes(x=adm_month)) #+
-  # scale_x_discrete(limits =seq(1,12,1))
+  mutate(adm_month = month(ADMITTIME ,label=TRUE)) %>%  # get month components
+  ggplot() + geom_bar(mapping = aes(x=adm_month), width=0.5) +
+  labs(x="Admission Month")   # add x label
 
 # freqpoly
-Admission %>%
-  mutate(adm_month = month(ADMITTIME)) %>%
-  ggplot() +  geom_freqpoly(mapping = aes(x=adm_month),binwidth = 1) +
-  scale_x_continuous(breaks =seq(1,12,1))
-
-# Make x ticks in MMM?
 # Admission %>%
-#   mutate(adm_month = month(ADMITTIME)) %>%  
-#   ggplot() + 
-#   geom_freqpoly(mapping = aes(x=adm_month),binwidth = 1) +
-#   scale_x_date(month(Admission$ADMITTIME))
+#   mutate(adm_month = month(ADMITTIME)) %>%
+#   ggplot() +  geom_freqpoly(mapping = aes(x=adm_month),binwidth = 1) +
+#   scale_x_continuous(breaks =seq(1,12,1))
+
 ```
 
-Admission week day
+Admission week day:
+The admission number in weedays is obviously higher than that in the weekend by around 2000.
 ```{r}
 Admission %>%
-  mutate(adm_weekday = wday(ADMITTIME, label = TRUE)) %>% 
+  # get weekday components
+  mutate(adm_weekday = wday(ADMITTIME, label = TRUE)) %>%  
   ggplot() +
-  geom_bar(mapping = aes(x=adm_weekday))
+  geom_bar(mapping = aes(x=adm_weekday), width = 0.75)+
+  labs(x="Admission Weekday")
 ```
 
-Admission hour
+Admission hour:
+Admission peak time can be found at 7 a.m.. It is possibel that going to the hospital is the first thing in the morning, or the outpatient service starts from 7 a.m. The admission number drops significantly after the peak and gradually rise to the second peak at 4~5 p.m. before it drops gradually at night.
+```{r}
+Admission %>% 
+  mutate(adm_hr = hour(ADMITTIME)) %>%  # get hour components
+  ggplot() +
+  geom_bar(mapping = aes(x=adm_hr), width=0.5)+
+  # More ticks and x label
+  scale_x_continuous(breaks =seq(0,24,1))+
+  labs(x= "Amission Hour") 
+```
+
+Length of hospital stay (in days):
+Most people stay in the hospital less than 30 days, but some people stayed in hospital for as many as 294 days (maximum value).
 ```{r}
 Admission %>%
-  mutate(adm_hr = hour(ADMITTIME)) %>% 
+  # Set unit to days and get the time difference
+  mutate(adm_StayTime = as.numeric(difftime(DISCHTIME,ADMITTIME,units = "day"))) %>% 
   ggplot() +
-  geom_freqpoly(mapping = aes(x=adm_hr, stat(density)),binwidth = 1)
+  geom_freqpoly(mapping = aes(x=adm_StayTime),binwidth=1)+
+  scale_x_continuous(breaks =seq(0,300,15))+
+  labs(x= "Staying Time (day) in Hospital")
 ```
 
-Length of hospital stay
-```{r}
-Admission %>%
-  mutate(adm_StayTime = (DISCHTIME-ADMITTIME)/60/60) %>% 
-  ggplot() +
-  geom_freqpoly(mapping = aes(x=adm_StayTime, stat(density)),binwidth=1)
-```
-
-Admission type
+Admission type:
+More than 70%  of people went to this hospital for emergency care. Patients with appointment and newborn babies both count for around 12% admission case, and the left patients came for urgent care.
 ```{r}
 Admission %>%
   ggplot() +
-  geom_bar(mapping = aes(x=ADMISSION_TYPE, y = ..prop.., group = 1))
+  # plot adimission types as bar chart, with percentage y axis
+  geom_bar(mapping = aes(x=ADMISSION_TYPE, y = ..prop.., group = 1),width=0.75)+
+  labs(x="Admission Type", y="Percentage")+
+  scale_y_continuous(labels = percent)
 
 ```
 
 
-Number of addmissions per patient
+Number of addmissions per patient:
+The hospital admitted more than 80% of patients only once, and 10% patients twice. Still, there were patients who got admitted 43 times in this hospital.
 ```{r}
 # by_ID <- group_by(Admission,SUBJECT_ID)
 # AdmCounts <- summarise(by_ID, count = n())
@@ -141,16 +153,21 @@ Admission %>%
   group_by(SUBJECT_ID) %>%
   summarise(count = n()) %>%
   ggplot() +
+  # plot number of admission per patient as line, with percentage y axis
   geom_freqpoly(mapping = aes(x=count, stat(density)), binwidth=1)+ 
-  scale_x_continuous( breaks = seq(0,42,2),
-                     name = 'Adm Times per Patient')
+  scale_x_continuous( breaks = seq(0,42,2))+
+  scale_y_continuous(labels = percent)+
+  labs(y = 'percentage',x = 'Admission # per Patient')
 ```
 
-Admission Location
+Admission location:
+Most patients were admitted in the emergency room (almost 40%), followed by pysician referral (25%)
 ```{r}
 Admission %>%
   ggplot() +
   geom_bar(mapping = aes(stringr::str_wrap(ADMISSION_LOCATION,15), y = ..prop.., group = 1) , width=.5) + 
+  scale_y_continuous(labels = percent)+
+  # the axes are flipped because of the long axis label 
   coord_flip() +
   labs(x = 'Admission Location', y = 'Percentage')
 
@@ -162,15 +179,29 @@ by_ID <- distinct(Admission, SUBJECT_ID, .keep_all = TRUE)
 ```
 
 Insurance:
+Most of patients use either medicare (~44%) or private insurance (~42%)
 ```{r}
 by_ID %>%
   ggplot() + 
-  geom_bar(mapping=aes(INSURANCE, y = ..prop.., group = 1))+
+  geom_bar(mapping=aes(INSURANCE, y = ..prop.., group = 1), width=0.75)+
+  scale_y_continuous(labels = percent)+
   labs(x='Insurance Types', y='Percentage')
 ```
 
 Language
 ```{r}
+# It is hard to show so many language types on a single plot, try two subplots?
+# 
+# # New variable for language counts
+# Patient_lan <- by_ID %>% 
+#   group_by(LANGUAGE) %>%
+#   summarise(count=n())
+# 
+# # plot two subplots on one figure
+# # p1 <- ggplot(data = Patient_lan)+
+# #   geom_point
+
+
 by_ID %>%
   ggplot() + 
   geom_bar(mapping=aes(x=factor(1), fill=LANGUAGE))+
@@ -195,20 +226,24 @@ by_ID %>%
 ```
 
 Religion:
+About one third patients were Catholics and the religion of around 35% patients were either unobtainable or specified.
 ```{r}
 by_ID %>%
   ggplot() + 
   geom_bar(mapping=aes(RELIGION, y = ..prop.., group = 1))+
+  scale_y_continuous(labels = percent)+
   labs(x='Religion', y='Percentage')+
   coord_flip()
 ```
 
-Martial Status:
+Martial status:
+Around 40% of patients were married. Single patients count for around 21%, and about 12% of them are widowed. Martial stutus data for around 21% patient is not availabel.
 ```{r}
 by_ID %>%
   ggplot() + 
   geom_bar(mapping=aes(MARITAL_STATUS, y = ..prop.., group = 1))+
   labs(x='Maritial Status', y='Percentage')+
+  scale_y_continuous(labels = percent)+
   coord_flip()
 ```
 
@@ -223,17 +258,52 @@ by_ID %>%
 ```
 
 Death:
+9% of patients die after admitted in the hospital
 ```{r}
 # conditionaly mutate new variable: is.nan(death time) => livy;
 # ! is.nan(death time) => dead.
 # ifelse can do conditional mutating
 
-by_ID %>%
+by_ID %>% 
+  # decide dead or live
   mutate(LifeStatus = ifelse(is.na(DEATHTIME), 'Live','Dead')) %>%
-  ggplot() +
-  geom_bar(mapping=aes(x = factor(1), fill= LifeStatus))+
+  
+  # count dead or live numbers
+  group_by(LifeStatus) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(LifeStatus)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= LifeStatus)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
   coord_polar(theta = 'y', direction = 1)+
-  scale_x_discrete(breaks = NULL, name = '')
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+
+
+# by_ID %>%
+#   mutate(LifeStatus = ifelse(is.na(DEATHTIME), 'Live','Dead')) %>%
+#   ggplot() +
+#   geom_bar(mapping=aes(x = factor(1), fill= LifeStatus))+
+#   coord_polar(theta = 'y', direction = 1)+
+#   scale_x_discrete(breaks = NULL, name = '')+
+#   scale_y_discrete(breaks = NULL, name = '')+
+#   theme(axis.text.x=element_blank())
 ```
 
 
@@ -263,22 +333,61 @@ JointT <- left_join(Admission, Patients, by = "SUBJECT_ID")
 ```
 
 Gender:
+Male and female patients count 56% and 44% respectively
 ```{r}
 JointT %>%
-  ggplot() + 
-  geom_bar(mapping=aes(x=factor(1), fill=GENDER), width=1)+
+  # demographic info for unique patients
+  distinct(SUBJECT_ID, .keep_all = TRUE) %>%
+  
+  # count male or female patients numbers
+  group_by(GENDER) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(GENDER)) %>%
+  ggplot(aes(x = "", y= Prop, fill= GENDER)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
   coord_polar(theta = 'y', direction = 1)+
-  scale_x_discrete(breaks = NULL, name = '')
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+
   
 ```
 
 Admission Age
+*NOTE:* Unrealistic DOB (300 years before the admission) is set for patient who are older than 89 years old (<https://mimic.physionet.org/mimictables/patients/>)
+For this hospital, a major group of the "patients" are newborn baby (around 14%, more than 8000). It did not take any patients between 1~16 years old, and its patients' age range from 15~90. It seems it took more senior patients than youger ones.
 ```{r}
-JointT %>%
+f<- JointT %>%
   # calculate the difference b/t bod & admission time
-  mutate(age = (ADMITTIME-DOB)/60/60/24/365 ) %>% 
+  mutate(age = difftime(ADMITTIME,DOB, units = "days")/365 ) %>% 
+  # get rid of unrealistic age 
+  filter(age < 200) %>%
   ggplot() +
-  geom_histogram(mapping = aes(x=age), binwidth = 10)
+  geom_freqpoly (mapping = aes(x=age, stat(density)), binwidth = 1)
+
+# original plot
+f+scale_x_continuous( breaks = seq(0,90,5))+
+  scale_y_continuous(breaks = seq(0,.15,.02), labels = percent,
+                     name="Percentage")
+
+# zoomed-in plot
+f+scale_x_continuous( breaks = seq(0,20,1))+
+  scale_y_continuous(breaks = seq(0,.15,.02),labels = percent,
+                     name="Percentage")+
+  coord_cartesian(xlim = c(0, 20))
 
 ```
 
@@ -303,50 +412,117 @@ Icustay <-read_csv('/home/203bdata/mimic-iii/ICUSTAYS.csv',
 
 ```
 
-Length of ICU stay
+Length of ICU stay:
+Most patients stayed in ICU less than 10 days
 ```{r}
-Icustay %>%
+f<- Icustay %>%
   # calculate the difference b/t in & out time
-  mutate(Stayperiod = (OUTTIME-INTIME)/60/60/24 ) %>% 
+  mutate(Stayperiod = difftime(OUTTIME,INTIME, units = "days")) %>% 
   ggplot() +
-  geom_histogram(mapping = aes(x=Stayperiod, stat(density)), binwidth = 1)
+  geom_freqpoly(mapping = aes(x=Stayperiod, stat(density)), binwidth = 1)
+
+# original plot
+f+scale_x_continuous( breaks = seq(0,175,10))+
+  scale_y_continuous(breaks = seq(0,.3,.05), labels = percent
+                     ,name="Percentage")
+
+# zoomed-in plot
+f + scale_x_continuous( breaks = seq(0,20,1))+
+  scale_y_continuous(breaks = seq(0,.3,.05), labels = percent
+                     ,name="Percentage")+
+  coord_cartesian(xlim = c(0, 20))
+
 
 ```
 
-First ICU unit
+First ICU unit:
+MICU is the first ICU for most of patients(almost 35%), and the percentages for other ICUs are close and around 13%
 ```{r}
 Icustay %>%
   ggplot() +
-  geom_bar(mapping = aes(FIRST_CAREUNIT, y=..prop.., group=1))
+  geom_bar(mapping = aes(FIRST_CAREUNIT, y=..prop.., group=1),width = 0.75)+
+  scale_y_continuous(labels = percent)+
+  labs(x="First ICU Unit", y="Percentage")
 
 ```
 
 Gender:
+The gender distribution is the same as that for general patients. Male and female patients count 56% and 44% respectively. It is possible that most of the patients get into ICU.
 ```{r}
 # c = Icustay %>% left_join(Patients, by='SUBJECT_ID')
 Icustay %>%
+  # join patient to get gender info, left join to keep all ICU data
   left_join(Patients, by='SUBJECT_ID') %>%
-  ggplot() + 
-  geom_bar(mapping=aes(x='', fill=GENDER), width=.5) +
-  theme(axis.text.x=element_blank())+
-  coord_polar(theta = 'y', start=0)
-  # scale_x_discrete(breaks = NULL, name = '')
   
+  # demographic info for unique patients
+  distinct(SUBJECT_ID, .keep_all = TRUE) %>%
+  
+  # count male or female patients numbers
+  group_by(GENDER) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(GENDER)) %>%
+  ggplot(aes(x = "", y= Prop, fill= GENDER)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+
+  # ggplot() + 
+  # geom_bar(mapping=aes(x='', fill=GENDER), width=.5) +
+  # theme(axis.text.x=element_blank())+
+  # coord_polar(theta = 'y', start=0)
+  # # scale_x_discrete(breaks = NULL, name = '')
 ```
 
- Age
+Age:
 ```{r}
-c <- Icustay %>%
-  left_join(Patients, by='SUBJECT_ID') %>%
-  # calculate the difference b/t bod & admission time
-  mutate(age = as.numeric(as.duration(INTIME-DOB))/60/60/24/365 )
 
-Icustay %>%
+f<- Icustay %>%
   left_join(Patients, by='SUBJECT_ID') %>%
   # calculate the difference b/t bod & admission time
-  mutate(age = as.numeric(as.duration(INTIME-DOB))/60/60/24/365 ) %>% 
+  mutate(age = difftime(INTIME,DOB, units = "days")/365 ) %>% 
+  # get rid of unrealistic age 
+  filter(age < 200) %>%
   ggplot() +
-  geom_histogram(mapping = aes(age))
+  geom_freqpoly (mapping = aes(x=age, stat(density)), binwidth = 1)
+
+# original plot
+f+scale_x_continuous( breaks = seq(0,90,5))+
+  scale_y_continuous(breaks = seq(0,.15,.02), labels = percent,
+                     name="Percentage")
+
+# zoomed-in plot
+f+scale_x_continuous( breaks = seq(0,20,1))+
+  scale_y_continuous(breaks = seq(0,.15,.02),labels = percent,
+                     name="Percentage")+
+  coord_cartesian(xlim = c(0, 20))
+
+
+# c <- Icustay %>%
+#   left_join(Patients, by='SUBJECT_ID') %>%
+#   # calculate the difference b/t bod & admission time
+#   mutate(age = as.numeric(as.duration(INTIME-DOB))/60/60/24/365 )
+# 
+# Icustay %>%
+#   left_join(Patients, by='SUBJECT_ID') %>%
+#   # calculate the difference b/t bod & admission time
+#   mutate(age = as.numeric(as.duration(INTIME-DOB))/60/60/24/365 ) %>% 
+#   ggplot() +
+#   geom_histogram(mapping = aes(age))
 
 ```
 
