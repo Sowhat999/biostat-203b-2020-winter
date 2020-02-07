@@ -59,6 +59,7 @@ Admission <- read_csv('/home/203bdata/mimic-iii/ADMISSIONS.csv',
 ```
 
 Admission year:
+
 Every year, there are about 550 admission except for the latest years, which has abnormal low admission numbers. It is possible that the latest data has not been updated yet.
 ```{r}
 Admission %>%
@@ -73,6 +74,7 @@ Admission %>%
 ```
 
 Admission month:
+
 The montly admission is also consistent (around 4750 admissions per month).
 ```{r}
 # 
@@ -90,6 +92,7 @@ Admission %>%
 ```
 
 Admission week day:
+
 The admission number in weedays is obviously higher than that in the weekend by around 2000.
 ```{r}
 Admission %>%
@@ -101,6 +104,7 @@ Admission %>%
 ```
 
 Admission hour:
+
 Admission peak time can be found at 7 a.m.. It is possibel that going to the hospital is the first thing in the morning, or the outpatient service starts from 7 a.m. The admission number drops significantly after the peak and gradually rise to the second peak at 4~5 p.m. before it drops gradually at night.
 ```{r}
 Admission %>% 
@@ -113,6 +117,7 @@ Admission %>%
 ```
 
 Length of hospital stay (in days):
+
 Most people stay in the hospital less than 30 days, but some people stayed in hospital for as many as 294 days (maximum value).
 ```{r}
 Admission %>%
@@ -125,6 +130,7 @@ Admission %>%
 ```
 
 Admission type:
+
 More than 70%  of people went to this hospital for emergency care. Patients with appointment and newborn babies both count for around 12% admission case, and the left patients came for urgent care.
 ```{r}
 Admission %>%
@@ -138,6 +144,7 @@ Admission %>%
 
 
 Number of addmissions per patient:
+
 The hospital admitted more than 80% of patients only once, and 10% patients twice. Still, there were patients who got admitted 43 times in this hospital.
 ```{r}
 # by_ID <- group_by(Admission,SUBJECT_ID)
@@ -161,6 +168,7 @@ Admission %>%
 ```
 
 Admission location:
+
 Most patients were admitted in the emergency room (almost 40%), followed by pysician referral (25%)
 ```{r}
 Admission %>%
@@ -179,6 +187,7 @@ by_ID <- distinct(Admission, SUBJECT_ID, .keep_all = TRUE)
 ```
 
 Insurance:
+
 Most of patients use either medicare (~44%) or private insurance (~42%)
 ```{r}
 by_ID %>%
@@ -188,7 +197,9 @@ by_ID %>%
   labs(x='Insurance Types', y='Percentage')
 ```
 
-Language
+Language:
+
+most language
 ```{r}
 # It is hard to show so many language types on a single plot, try two subplots?
 # 
@@ -200,32 +211,58 @@ Language
 # # plot two subplots on one figure
 # # p1 <- ggplot(data = Patient_lan)+
 # #   geom_point
-
+library("ggrepel")
 
 by_ID %>%
-  ggplot() + 
-  geom_bar(mapping=aes(x=factor(1), fill=LANGUAGE))+
-  coord_polar("y")
+  # count male or female patients numbers
+  group_by(LANGUAGE)  %>%
+  summarise(count=n()) %>%
+  filter(count>100, !is.na(LANGUAGE)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(LANGUAGE)) %>%
+  
+  ggplot(aes(x= "", y=count, fill=LANGUAGE)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # try label repel
+  # geom_label_repel(aes(label = LANGUAGE), data = count)+
+  
+  # try text repel
+  geom_text_repel(aes(y = cumsum(count) - 0.5*count,  # label position
+            label = count), size=5)+
+  
+  # # add percentage labels on the pie charte
+  # geom_text(aes(y = cumsum(count) - 0.5*count,  # label position
+  #           label = count), size=5) + # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
   # coord_flip()+
   # labs(x='Language', y='Percentage')
 
-# Remove nan values?
-by_ID %>%
-  filter(!is.na(LANGUAGE)) %>%
-  ggplot() + 
-  geom_bar(mapping=aes(x=factor(1), fill=LANGUAGE))+
-  coord_polar("y")
-
-# bar chart?
-by_ID %>%
-  filter(!is.na(LANGUAGE)) %>%  
-  ggplot() + 
-  geom_bar(mapping=aes(LANGUAGE))+
-  coord_flip()+
-  labs(x='Language', y='Percentage')
+# # Remove nan values?
+# by_ID %>%
+#   filter(!is.na(LANGUAGE)) %>%
+#   ggplot() + 
+#   geom_bar(mapping=aes(x=factor(1), fill=LANGUAGE))+
+#   coord_polar("y")
+# 
+# # bar chart?
+# by_ID %>%
+#   filter(!is.na(LANGUAGE)) %>%  
+#   ggplot() + 
+#   geom_bar(mapping=aes(LANGUAGE))+
+#   coord_flip()+
+#   labs(x='Language', y='Percentage')
 ```
 
 Religion:
+
 About one third patients were Catholics and the religion of around 35% patients were either unobtainable or specified.
 ```{r}
 by_ID %>%
@@ -237,6 +274,7 @@ by_ID %>%
 ```
 
 Martial status:
+
 Around 40% of patients were married. Single patients count for around 21%, and about 12% of them are widowed. Martial stutus data for around 21% patient is not availabel.
 ```{r}
 by_ID %>%
@@ -249,15 +287,27 @@ by_ID %>%
 
 
 Ethnicity:
+
+Most of the patients in the hospital are white (~69%)
 ```{r}
 by_ID %>%
+  group_by(ETHNICITY)  %>%
+  summarise(count=n()) %>%
+  mutate(Prop = count/sum(count))%>%
+  
+  # Omit minor Ethnicity (less than 100 patients)
+  filter(count>100) %>%
+  
   ggplot() + 
-  geom_bar(mapping=aes(stringr::str_wrap(ETHNICITY,10), y = ..prop.., group = 1))+
-  labs(x='Maritial Status', y='Percentage')+
+  geom_bar(mapping=aes(stringr::str_wrap(ETHNICITY,15), y = Prop),
+           stat = "identity", width=0.5)+
+  scale_y_continuous(breaks = seq(0,.7,.1),labels = percent)+
+  labs(x='Ethnicity', y='Count')+
   coord_flip()
 ```
 
 Death:
+
 9% of patients die after admitted in the hospital
 ```{r}
 # conditionaly mutate new variable: is.nan(death time) => livy;
@@ -315,6 +365,7 @@ Link the data in `ADMISSION.csv` and `PATIENTS.csv` (<https://mimic.physionet.or
 - age at admission 
 
 **Solutions:**
+
 Read data and join two tibble by `SUBJECT_ID`. Only `ADMISSION.csv` has duplicate keys
 ```{r}
 # Read the PATIENTS data
@@ -333,6 +384,7 @@ JointT <- left_join(Admission, Patients, by = "SUBJECT_ID")
 ```
 
 Gender:
+
 Male and female patients count 56% and 44% respectively
 ```{r}
 JointT %>%
@@ -366,7 +418,8 @@ JointT %>%
   
 ```
 
-Admission Age
+Admission Age:
+
 *NOTE:* Unrealistic DOB (300 years before the admission) is set for patient who are older than 89 years old (<https://mimic.physionet.org/mimictables/patients/>)
 For this hospital, a major group of the "patients" are newborn baby (around 14%, more than 8000). It did not take any patients between 1~16 years old, and its patients' age range from 15~90. It seems it took more senior patients than youger ones.
 ```{r}
@@ -401,6 +454,7 @@ f+scale_x_continuous( breaks = seq(0,20,1))+
 - age  
 
 **Solutions:**
+
 Read data `ICUSTAY.csv`
 ```{r}
 # Read the ICUSTAY data
@@ -413,6 +467,7 @@ Icustay <-read_csv('/home/203bdata/mimic-iii/ICUSTAYS.csv',
 ```
 
 Length of ICU stay:
+
 Most patients stayed in ICU less than 10 days
 ```{r}
 f<- Icustay %>%
@@ -436,6 +491,7 @@ f + scale_x_continuous( breaks = seq(0,20,1))+
 ```
 
 First ICU unit:
+
 MICU is the first ICU for most of patients(almost 35%), and the percentages for other ICUs are close and around 13%
 ```{r}
 Icustay %>%
@@ -447,6 +503,7 @@ Icustay %>%
 ```
 
 Gender:
+
 The gender distribution is the same as that for general patients. Male and female patients count 56% and 44% respectively. It is possible that most of the patients get into ICU.
 ```{r}
 # c = Icustay %>% left_join(Patients, by='SUBJECT_ID')
@@ -489,6 +546,7 @@ Icustay %>%
 ```
 
 Age:
+
 ```{r}
 
 f<- Icustay %>%
@@ -535,6 +593,8 @@ f+scale_x_continuous( breaks = seq(0,20,1))+
 Compile a tibble that contains the first ICU stay of unique patients, with the patient's demographic information, the first systolic blood pressure measurement during ICU stay, and whether the patient died within 30 days of hospitcal admission.
 
 ** Solutions:**
+
+Intepretion needed
 ```{r}
 # Read the CHARTEVENTS data, which has non-default datetime format
 ChartEvent <-read_csv('/home/203bdata/mimic-iii/CHARTEVENTS.csv',
@@ -579,8 +639,7 @@ FirstIcuStay <- arrange(Icustay, INTIME) %>%
 # measurement did in ICU
 # Only need measurement for ICU patients; Does every ICU patients
 # had systolic measurement?  => no
-FinalTibble <- inner_join(FirstIcuStay, SystolicMeas, by = "SUBJECT_ID") %>%
-  filter(CHARTTIME>INTIME & CHARTTIME<OUTTIME | is.na(CHARTTIME))
+FinalTibble <- inner_join(FirstIcuStay, SystolicMeas, by = "SUBJECT_ID") 
 
 
 # %>%
