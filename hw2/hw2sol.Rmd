@@ -368,26 +368,21 @@ Patients %>%
 
 *NOTE:* Unrealistic DOB (300 years before the admission) is set for patient who are older than 89 years old (<https://mimic.physionet.org/mimictables/patients/>)
 
-For this hospital, a major group of the "patients" are newborn baby (around 14%, more than 8000). It did not take few patients between 1~16 years old, and its patients' age range from 15~90. It seems it took more senior patients than youger ones.
+For this hospital, a major group of the "patients" are newborn baby (Totoal of around 14% for both male and female baby). It took few patients between around 10 years old, and even though its patients' age range from 15~90. It seems it took more senior patients than youger ones. And male patients are more than female patients for most of the age interval (10 years old).
 ```{r}
-f<- JointT %>%
+JointT %>%
   # calculate the difference b/t bod & admission time
   mutate(age = difftime(ADMITTIME,DOB, units = "days")/365 ) %>% 
   # get rid of unrealistic age 
   filter(age < 200) %>%
   ggplot() +
-  geom_freqpoly (mapping = aes(x=age, stat(density)), binwidth = 1)
-
-# original plot
-f+scale_x_continuous( breaks = seq(0,90,5))+
-  scale_y_continuous(breaks = seq(0,.15,.02), labels = percent,
-                     name="Percentage")
-
-# zoomed-in plot
-f+scale_x_continuous( breaks = seq(0,20,1))+
-  scale_y_continuous(breaks = seq(0,.15,.02),labels = percent,
+  geom_histogram(mapping = aes(x=age,y = (..count..)/sum(..count..)),
+           binwidth = 10, color = "white")+
+  scale_y_continuous(breaks = seq(0,.2,.025), labels = percent,
                      name="Percentage")+
-  coord_cartesian(xlim = c(0, 20))
+  scale_x_continuous( breaks = seq(0,100,10), name = "Age")+
+  # make it facet with gender
+  facet_grid(~GENDER)
 
 ```
 
@@ -415,26 +410,22 @@ Icustay <-read_csv('/home/203bdata/mimic-iii/ICUSTAYS.csv',
 
 *Length of ICU stay:*
 
-Most patients stayed in ICU less than 10 days, but some patients stayed in ICU for as long as 175 days.
+Most patients (close to 80%) stayed in ICU less than 10 days, and Male tends to stay in ICU longer than Female
 ```{r warning=FALSE}
-f<- Icustay %>%
-  # calculate the difference b/t in & out time
+
+Icustay %>%
+  # join the patients to get gender info
+  left_join(Patients, by = "SUBJECT_ID")%>%
+  # calculate the difference b/t in & out time to get staying time
   mutate(Stayperiod = difftime(OUTTIME,INTIME, units = "days")) %>% 
   ggplot() +
-  geom_freqpoly(mapping = aes(x=Stayperiod, stat(density)), binwidth = 1)
-
-# original plot
-f+scale_x_continuous( breaks = seq(0,175,10))+
-  scale_y_continuous(breaks = seq(0,.3,.05), labels = percent
-                     ,name="Percentage")
-
-# zoomed-in plot
-f + scale_x_continuous( breaks = seq(0,20,1))+
-  scale_y_continuous(breaks = seq(0,.3,.05), labels = percent
+  geom_histogram(mapping = aes(x=Stayperiod, y=(..count..)/sum(..count..),
+                               fill=GENDER),
+                 binwidth = 10, color = "white")+
+  scale_x_continuous( breaks = seq(0,100,10), name = "ICU Staying Days")+
+  scale_y_continuous(breaks = seq(0,.8,.1), labels = percent
                      ,name="Percentage")+
-  coord_cartesian(xlim = c(0, 20))
-
-
+  coord_cartesian(xlim = c(0, 70))
 ```
 
 *First ICU unit:*
@@ -490,29 +481,25 @@ Icustay %>%
 
 *Age:*
 
-Same as the Gender distribution. The age distribution for ICU admission is similar to the general hospital admission. For this hospital, a major group of the "patients" are newborn baby (around 14%, more than 8000). It did not take few patients between 1~16 years old, and its patients' age range from 15~90. It seems it took more senior patients than youger ones.
+Same as the Gender distribution. The age distribution for ICU admission is almost identical to the general hospital admission. For this hospital, a major group of the "patients" are newborn baby (Totoal of around 14% for both male and female baby). It took few patients between around 10 years old, and even though its patients' age range from 15~90. It seems it took more senior patients than youger ones. And male patients are more than female patients for most of the age interval (10 years old).
 ```{r}
 # Check the age when admitted in ICU, one each patients can have multi ICU age
 
-f<- Icustay %>%
+Icustay %>%
   left_join(Patients, by='SUBJECT_ID') %>%
   # calculate the difference b/t bod & admission time
   mutate(age = difftime(INTIME,DOB, units = "days")/365 ) %>% 
   # get rid of unrealistic age 
   filter(age < 200) %>%
   ggplot() +
-  geom_freqpoly (mapping = aes(x=age, stat(density)), binwidth = 1)
-
-# original plot
-f+scale_x_continuous( breaks = seq(0,90,5))+
-  scale_y_continuous(breaks = seq(0,.15,.02), labels = percent,
-                     name="Percentage")
-
-# zoomed-in plot
-f+scale_x_continuous( breaks = seq(0,20,1))+
-  scale_y_continuous(breaks = seq(0,.15,.02),labels = percent,
+  geom_histogram(mapping = aes(x=age,y = (..count..)/sum(..count..)),
+           binwidth = 10, color = "white")+
+  scale_y_continuous(breaks = seq(0,.2,.025), labels = percent,
                      name="Percentage")+
-  coord_cartesian(xlim = c(0, 20))
+  scale_x_continuous( breaks = seq(0,100,10), name = "Age")+
+  # make it facet with gender
+  facet_grid(~GENDER)
+
 ```
 
 ## Q4
@@ -541,7 +528,7 @@ Compile a tibble that contains the first ICU stay of unique patients, with the p
 
       *NOTE:* After doing above procedures, got an empty tibble. And while debugging, notice that in the `CHARTEVENT.csv` file, the `CHARTTIME` varible only provides last 2 digits (e.g., 98 for the year of 1998/2098/2198) for year info. And the system make up the year number as usual year number (i.e., first two digits are either 19 or 20), which is hundreds years different from the encrypted year data in `ICUSTAY.csv` data. And thus the `CHARTTIME` is moved forward 200 year to get a resonable result (tibble with 673 rows).
 
-7. Distinct the above result tibble by `SUBJECT_ID` since multiple systolic measurement could be done for them during their first ICU stay.
+7. Distinct the above result tibble by `SUBJECT_ID` after sorting it in ascending order, since multiple systolic measurement could be done for them during their first ICU stay.
 
 8. Join the tibble with `Patients` info, and then mutate it to add variable indicates the life status after 30 days of hospital admission (This ICU admission).
 
@@ -592,20 +579,26 @@ SystolicMeas <- ChartEvent_cor %>%
 FirstIcuStay <- arrange(Icustay, INTIME) %>%
   distinct(SUBJECT_ID, .keep_all = TRUE)
 
-# Get all systolic measurement in first ICU stay by outjoin, and filter out the
+# Get all systolic measurement in first ICU stay by innerjoin, and filter out the
 # measurement did in ICU
-# Only need measurement for ICU patients; Does every ICU patients
-# had systolic measurement?  => no
 FinalTibble <- inner_join(FirstIcuStay, SystolicMeas, by = "SUBJECT_ID") %>%
   filter(CHARTTIME>INTIME, CHARTTIME<OUTTIME) %>%
+  
+  # patients can have multiple systolic meas during ICU stay => duplicate keys
+  # arrange by CHARTTIME and get the first meas by dinstinct function
+  arrange(CHARTTIME) %>%
   distinct(SUBJECT_ID, .keep_all = TRUE)  %>%
+  
+  # left join patients info
   left_join(Patients, by="SUBJECT_ID") %>%
   mutate(LifeStatus30d = ifelse(
     !is.na(DOD)&difftime(DOD,INTIME,units='days')<=30, 'Dead','Live'))%>%
   select(SUBJECT_ID, INTIME, OUTTIME, ITEMID, CHARTTIME, VALUE, VALUENUM, 
          VALUEUOM, LABEL, GENDER, DOB, DOD, LifeStatus30d)
 
-FinalTibble
+
+# Print the tibble
+FinalTibble %>% print(width = Inf)
 
 
 ```
