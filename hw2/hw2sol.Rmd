@@ -1,0 +1,604 @@
+---
+title: "Biostat 203B Homework 2"
+author: Burson Tang UID#305068045
+subtitle: Due Feb 7 @ 11:59PM
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Remember the result of previous run, it will save time.
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)   
+```
+
+Use tidyverse (ggpot2, dplyr) to explore the [MIMIC-III](https://mimic.physionet.org) data introduced in [homework 1](https://ucla-biostat203b-2020winter.github.io/hw/hw1/hw1.html).
+
+## Q1
+
+Demographic information of the patients admitted into hospital is available in `ADMISSION.csv`. See <https://mimic.physionet.org/mimictables/admissions/> for details of each field in this file. Summarize following variables using appropriate graphs:   
+
+  - admission year  
+- admission month  
+- admission week day  
+- admission hour  
+- length of hospital stay  
+- admission type  
+- number of admissions per patient  
+- admission location  
+- insurance  
+- language  
+- religion  
+- martial status  
+- ethnicity  
+- death 
+
+Note it is possible that one patient (uniquely identified by the `SUBJECT_ID`) is admitted into hospital multiple times. When summarizing some demographic information, it makes sense to summarize based on only unique patients. 
+
+**Solution:**
+
+Load packages and Data:
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+# load packages
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(scales)
+
+# Read ADMISSION.csv
+Admission <- read_csv('/home/203bdata/mimic-iii/ADMISSIONS.csv',
+                 col_types = cols(ROW_ID=col_integer(),
+                                  SUBJECT_ID = col_integer(),
+                                  HADM_ID = col_integer(),
+                                  ADMITTIME = col_datetime(format = ""),
+                                  DISCHTIME = col_datetime(format = ""),
+                                  DEATHTIME = col_datetime(format = ""),
+                                  EDREGTIME = col_datetime(format = ""),
+                                  EDOUTTIME = col_datetime(format = "")) )
+```
+
+*Admission year:*
+
+Each year, there are about 550 admission except for the latest years, which has abnormal low admission numbers. It is possible that the latest data has not been updated yet.
+```{r}
+Admission %>%
+  mutate(adm_year = year(ADMITTIME)) %>% # get year components
+  ggplot() +
+  geom_freqpoly(mapping = aes(x=adm_year,stat(count)),binwidth = 1)+
+  # Add more ticks and change xtick label style
+  scale_x_continuous(breaks = seq(min(year(Admission$ADMITTIME),na.rm = TRUE),
+                               max(year(Admission$ADMITTIME),na.rm = TRUE),5),
+                     name = "Admission Year (encrypted)") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+*Admission month:*
+
+The montly admission is also consistent (almost 5000 admissions per month).
+```{r}
+# 
+Admission %>%
+  mutate(adm_month = month(ADMITTIME ,label=TRUE)) %>%  # get month components
+  ggplot() + geom_bar(mapping = aes(x=adm_month), width=0.5) +
+  
+  # add hline at the mean count, add corresponding legend
+  geom_hline(aes(yintercept = nrow(Admission)/12, 
+             linetype="MEAN"), color = "red",show.legend = TRUE)+
+  scale_linetype_manual(values = c("MEAN" = "dashed"))+
+  theme(legend.title = element_blank())+
+  
+  # axes
+  scale_y_continuous(breaks = seq(0,5000,500))+
+  labs(x="Admission Month")   # add x label
+```
+
+*Admission week day:*
+
+The admission number in weedays is obviously higher than that in the weekend by around 2000.
+```{r}
+Admission %>%
+  # get weekday components
+  mutate(adm_weekday = wday(ADMITTIME, label = TRUE)) %>%  
+  ggplot() +
+  geom_bar(mapping = aes(x=adm_weekday), width = 0.75)+
+  scale_y_continuous(breaks = seq(0,10000,1000))+
+  labs(x="Admission Weekday")
+```
+
+*Admission hour:*
+
+Admission peak time can be found at 7 a.m.. It is possibel that going to the hospital is the first thing in the morning, or the outpatient service starts from 7 a.m. The admission number drops significantly after the peak and gradually rise to the second peak at 4~5 p.m. before it drops gradually at night.
+```{r}
+Admission %>% 
+  mutate(adm_hr = hour(ADMITTIME)) %>%  # get hour components
+  ggplot() +
+  geom_bar(mapping = aes(x=adm_hr), width=0.5)+
+  # More ticks and label
+  scale_x_continuous(breaks =seq(0,24,1))+
+  scale_y_continuous(breaks = seq(0,4000,500))+
+  labs(x= "Amission Hour") 
+```
+
+*Length of hospital stay (in days):*
+
+Most people stay in the hospital less than 30 days, but some people stayed in hospital for as many as 294 days (maximum value).
+```{r}
+Admission %>%
+  # Set unit to days and get the time difference
+  mutate(adm_StayTime = difftime(DISCHTIME,ADMITTIME,units = "day")) %>% 
+  ggplot() +
+  geom_freqpoly(mapping = aes(x=adm_StayTime),binwidth=1)+
+  scale_x_continuous(breaks =seq(0,300,15))+
+  scale_y_continuous(breaks = seq(0,6000,1000))+
+  labs(x= "Staying Time (day) in Hospital")
+```
+
+*Admission type:*
+
+More than 70%  of people went to this hospital for emergency care. Patients with appointment and newborn babies both count for around 12% admission case, and the left patients came for urgent care.
+```{r}
+Admission %>%
+  ggplot() +
+  # plot adimission types as bar chart, with percentage y axis
+  geom_bar(mapping = aes(x=ADMISSION_TYPE, y = ..prop.., group = 1),width=0.75)+
+  labs(x="Admission Type", y="Percentage")+
+  scale_y_continuous(breaks = seq(0,.70,.1), labels = percent)
+
+```
+
+
+*Number of addmissions per patient:*
+
+The hospital admitted more than 80% of patients only once, and more than 10% patients twice. However, there were patients who got admitted 43 times in this hospital.
+```{r}
+# by_ID <- group_by(Admission,SUBJECT_ID)
+# AdmCounts <- summarise(by_ID, count = n())
+# AdmCounts %>%
+#   ggplot() +
+#   geom_freqpoly(mapping = aes(x=count, stat(density)), binwidth=1)+ 
+#   scale_x_continuous(limits = c(0, 10), breaks = seq(0,10,1),
+#                      name = 'Adm Times per Patient')
+
+# Use pipe only
+Admission %>% 
+  group_by(SUBJECT_ID) %>%
+  summarise(count = n()) %>%
+  ggplot() +
+  # plot number of admission per patient as line, with percentage y axis
+  geom_freqpoly(mapping = aes(x=count, stat(density)), binwidth=1)+ 
+  scale_x_continuous( breaks = seq(0,42,2))+
+  scale_y_continuous(breaks = seq(0,.80,.1),labels = percent)+
+  labs(y = 'percentage',x = 'Admission # per Patient')
+```
+
+*Admission location:*
+
+Most patients were admitted in the emergency room (~47%), followed by pysician referral (~25%), clinic referral (~20%), and hospital/extram transfer (~14%). Few patients were admitted from other pathways.
+```{r}
+Admission %>%
+  ggplot() +
+  # wrap the label to make the plot more compact
+  geom_bar(mapping = aes(stringr::str_wrap(ADMISSION_LOCATION,15), y = ..prop.., group = 1) , width=.5) + 
+  scale_y_continuous(breaks = seq(0,.4,.05), labels = percent)+
+  # the axes are flipped because of the long axis label 
+  coord_flip() +
+  labs(x = 'Admission Location', y = 'Percentage')
+
+```
+
+*NOTE*: Variables below are uniquely identified by patient/SUBJECTID. Define a variable `by-ID` with unique SUBJECT_ID.
+```{r}
+by_ID <- distinct(Admission, SUBJECT_ID, .keep_all = TRUE)
+```
+
+*Insurance:*
+
+Most of patients used either medicare (~44%) or private insurance (~42%). Only around 1% of patients paid fee by themselves.
+```{r}
+by_ID %>%
+  ggplot() + 
+  geom_bar(mapping=aes(INSURANCE, y = ..prop.., group = 1), width=0.75)+
+  scale_y_continuous(labels = percent)+
+  labs(x='Insurance Types', y='Percentage')
+```
+
+*Language:*
+
+It is notable that almost half (47.5%) of patients' language information is not available. With available data, we can tell most of the patients are English speaker (~45%). Even though Spanish is the second language for patients, it has percentage of less than 2.5%. And there are many language, which less than 100 patients spoke them and is not shown in the plot.
+```{r}
+by_ID %>%
+  
+  # get the major language (speaker#>100) spoken by patients
+  group_by(LANGUAGE)  %>%
+  summarise(count=n()) %>%
+  # calculate percentage before filtering => won't affect result much
+  # because minor language percentage very small
+  mutate(Prop = count/sum(count)) %>%
+  filter(count>100) %>%
+  
+  ggplot(aes(x= LANGUAGE, y=Prop)) + 
+  geom_bar(width=0.75, stat = "identity",color = "white")+
+  scale_y_continuous(breaks = seq(0,.5,.05),labels = percent)+
+  labs(x='Major Language', y='Percentage')
+```
+
+*Religion:*
+
+About one third patients were Catholics and patients with unobtainable or specified religion make up around 17% and 21% of the patients respectively.
+```{r}
+by_ID %>%
+  ggplot() + 
+  geom_bar(mapping=aes(RELIGION, y = ..prop.., group = 1))+
+  scale_y_continuous(breaks = seq(0,.35,.05),labels = percent)+
+  labs(x='Religion', y='Percentage')+
+  coord_flip()
+```
+
+*Martial status:*
+
+Around 40% of patients were married. Single patients count for around 21%, and about 12% of them are widowed. Martial stutus data for around 21% patient is not availabel.
+```{r}
+by_ID %>%
+  ggplot() + 
+  geom_bar(mapping=aes(MARITAL_STATUS, y = ..prop.., group = 1), width = .75)+
+  labs(x='Maritial Status', y='Percentage')+
+  scale_y_continuous(breaks = seq(0,.4,.05),labels = percent)+
+  coord_flip()
+```
+
+
+*Ethnicity:*
+
+Most of the patients in the hospital are white (~69%), and African American is the second largest patient group (~7%). There's around 9% of patients' ethnicity is unknown or not specified.
+```{r}
+by_ID %>%
+  group_by(ETHNICITY)  %>%
+  summarise(count=n()) %>%
+  mutate(Prop = count/sum(count))%>%
+  
+  # Omit minor Ethnicity (less than 100 patients)
+  filter(count>100) %>%
+  
+  ggplot() + 
+  geom_bar(mapping=aes(stringr::str_wrap(ETHNICITY,15), y = Prop),
+           stat = "identity", width=0.5)+
+  scale_y_continuous(breaks = seq(0,.7,.1),labels = percent)+
+  labs(x='Ethnicity', y='Count')+
+  coord_flip()
+```
+
+*Death:*
+
+There was 9% of patients die after admitted in this hospital
+```{r}
+# conditionaly mutate new variable: is.nan(death time) => livy;
+# ! is.nan(death time) => dead.
+# ifelse can do conditional mutating
+
+by_ID %>% 
+  # decide dead or live
+  mutate(LifeStatus = ifelse(is.na(DEATHTIME), 'Live','Dead')) %>%
+  
+  # count dead or live numbers
+  group_by(LifeStatus) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(LifeStatus)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= LifeStatus)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+```
+
+
+## Q2
+
+Link the data in `ADMISSION.csv` and `PATIENTS.csv` (<https://mimic.physionet.org/mimictables/patients/>) and summarize following variables using appropriate graphs:  
+
+- gender  
+- age at admission 
+
+**Solutions:**
+
+Read data and join two tibble by `SUBJECT_ID`. Only `ADMISSION.csv` has duplicate keys. One patient can be admitted in the hospital multiple times and for these multiple Admission row, append the patient information columns to it.
+```{r}
+# Read the PATIENTS data
+Patients <-read_csv('/home/203bdata/mimic-iii/PATIENTS.csv',
+                 col_types = cols(ROW_ID=col_integer(),
+                                  SUBJECT_ID = col_integer(),
+                                  GENDER = col_character(),
+                                  DOB = col_datetime(format = ""),
+                                  DOD = col_datetime(format = ""),
+                                  DOD_HOSP = col_character(),
+                                  DOD_SSN = col_datetime(format = ""),
+                                  EXPIRE_FLAG = col_integer() ))
+
+# join two datasets  => Only Admission has duplicate data
+JointT <- left_join(Admission, Patients, by = "SUBJECT_ID")
+```
+
+*Gender:*
+Male and female patients count 56% and 44% respectively
+```{r}
+# demographic info for unique patients
+Patients %>%  
+  # count male or female patients numbers
+  group_by(GENDER) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(GENDER)) %>%
+  ggplot(aes(x = "", y= Prop, fill= GENDER)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+
+  
+```
+
+*Admission age:*
+
+*NOTE:* Unrealistic DOB (300 years before the admission) is set for patient who are older than 89 years old (<https://mimic.physionet.org/mimictables/patients/>)
+
+For this hospital, a major group of the "patients" are newborn baby (Totoal of around 14% for both male and female baby). It took few patients between around 10 years old, and even though its patients' age range from 15~90. It seems it took more senior patients than youger ones. And male patients are more than female patients for most of the age interval (10 years old).
+```{r}
+JointT %>%
+  # calculate the difference b/t bod & admission time
+  mutate(age = difftime(ADMITTIME,DOB, units = "days")/365 ) %>% 
+  # get rid of unrealistic age 
+  filter(age < 200) %>%
+  ggplot() +
+  geom_histogram(mapping = aes(x=age,y = (..count..)/sum(..count..)),
+           binwidth = 10, color = "white")+
+  scale_y_continuous(breaks = seq(0,.2,.025), labels = percent,
+                     name="Percentage")+
+  scale_x_continuous( breaks = seq(0,100,10), name = "Age")+
+  # make it facet with gender
+  facet_grid(~GENDER)
+
+```
+
+## Q3
+
+`ICUSTAYS.csv` (<https://mimic.physionet.org/mimictables/icustays/>) contains data about Intensive Care Units (ICU) stays. Summarize following variables using appropriate graphs:  
+
+- length of ICU stay  
+- first ICU unit  
+- gender  
+- age  
+
+**Solutions:**
+
+Read data `ICUSTAY.csv`
+```{r}
+# Read the ICUSTAY data
+Icustay <-read_csv('/home/203bdata/mimic-iii/ICUSTAYS.csv',
+                 col_types = cols(ROW_ID=col_integer(),
+                                  SUBJECT_ID = col_integer(),
+                                  HADM_ID = col_integer(),
+                                  ICUSTAY_ID = col_integer() ))
+
+```
+
+*Length of ICU stay:*
+
+Most patients (close to 80%) stayed in ICU less than 10 days, and Male tends to stay in ICU longer than Female
+```{r warning=FALSE}
+
+Icustay %>%
+  # join the patients to get gender info
+  left_join(Patients, by = "SUBJECT_ID")%>%
+  # calculate the difference b/t in & out time to get staying time
+  mutate(Stayperiod = difftime(OUTTIME,INTIME, units = "days")) %>% 
+  ggplot() +
+  geom_histogram(mapping = aes(x=Stayperiod, y=(..count..)/sum(..count..),
+                               fill=GENDER),
+                 binwidth = 10, color = "white")+
+  scale_x_continuous( breaks = seq(0,100,10), name = "ICU Staying Days")+
+  scale_y_continuous(breaks = seq(0,.8,.1), labels = percent
+                     ,name="Percentage")+
+  coord_cartesian(xlim = c(0, 70))
+```
+
+*First ICU unit:*
+
+MICU is the first ICU for most of patients(almost 35%), and the percentages for other ICUs are close and around 13%
+```{r}
+Icustay %>%
+  ggplot() +
+  geom_bar(mapping = aes(FIRST_CAREUNIT, y=..prop.., group=1),width = 0.75)+
+  scale_y_continuous(labels = percent)+
+  labs(x="First ICU Unit", y="Percentage")
+
+```
+
+*Gender:*
+
+The gender percentage distribution is exactly the same as that for general patients. Male and female patients count 56% and 44% respectively. 
+It is possible that most of the patients get into ICU? Why does the `ICUSTAY.csv` has more rows than that of `ADMISSION.csv`
+```{r}
+# c = Icustay %>% left_join(Patients, by='SUBJECT_ID')
+Icustay %>%
+  # join patient to get gender info, left join to keep all ICU data
+  left_join(Patients, by='SUBJECT_ID') %>%
+  
+  # demographic info for unique patients, patients can be in ICU multi times
+  distinct(SUBJECT_ID, .keep_all = TRUE) %>%
+  
+  # count male or female patients numbers
+  group_by(GENDER) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(GENDER)) %>%
+  ggplot(aes(x = "", y= Prop, fill= GENDER)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+
+```
+
+*Age:*
+
+Same as the Gender distribution. The age distribution for ICU admission is almost identical to the general hospital admission. For this hospital, a major group of the "patients" are newborn baby (Totoal of around 14% for both male and female baby). It took few patients between around 10 years old, and even though its patients' age range from 15~90. It seems it took more senior patients than youger ones. And male patients are more than female patients for most of the age interval (10 years old).
+```{r}
+# Check the age when admitted in ICU, one each patients can have multi ICU age
+
+Icustay %>%
+  left_join(Patients, by='SUBJECT_ID') %>%
+  # calculate the difference b/t bod & admission time
+  mutate(age = difftime(INTIME,DOB, units = "days")/365 ) %>% 
+  # get rid of unrealistic age 
+  filter(age < 200) %>%
+  ggplot() +
+  geom_histogram(mapping = aes(x=age,y = (..count..)/sum(..count..)),
+           binwidth = 10, color = "white")+
+  scale_y_continuous(breaks = seq(0,.2,.025), labels = percent,
+                     name="Percentage")+
+  scale_x_continuous( breaks = seq(0,100,10), name = "Age")+
+  # make it facet with gender
+  facet_grid(~GENDER)
+
+```
+
+## Q4
+
+`CHARTEVENTS.csv` (<https://mimic.physionet.org/mimictables/chartevents/>) contains all the charted data available for a patient. During their ICU stay, the primary repository of a patient’s information is their electronic chart. The `ITEMID` variable indicates a single measurement type in the database. The `VALUE` variable is the value measured for `ITEMID`. 
+
+`D_ITEMS.csv` (<https://mimic.physionet.org/mimictables/d_items/>) is the dictionary for the `ITEMID` in `CHARTEVENTS.csv`. Find potential values of `ITEMID` that correspond to systolic blood pressure, i.e., `LABEL` contains the string `systolic`. 
+
+Compile a tibble that contains the first ICU stay of unique patients, with the patient's demographic information, the first systolic blood pressure measurement during ICU stay, and whether the patient died within 30 days of hospitcal admission.
+
+**Solutions:**
+
+*IDEA: *
+
+1. Read the data of course; 
+
+2. Filter the `D_item` tibble by key words "systolic" to get systolic items info -> `SystolicItem`;
+
+3. Inner join `SystolicItem` and the `ChartEvent`, to only keep the systolic measurement, with systolic item info appended;
+
+4. Arrange `Icustay` and use distinct by `SUBJECT_ID` to get the first ICU stay for each patient, get `FirstIcuStay` tibble;
+
+5. Inner join `FirstIcuStay` and `SystolicMeas` to append all first-time the ICU stay with systolic meas info;
+
+6. Then filter the joint tibble by `CHARTTIME` should be between ICU `INTIME` and `OUTTIME` to get the systolic measurement conducted during their first ICU stay.
+
+      *NOTE:* After doing above procedures, got an empty tibble. And while debugging, notice that in the `CHARTEVENT.csv` file, the `CHARTTIME` varible only provides last 2 digits (e.g., 98 for the year of 1998/2098/2198) for year info. And the system make up the year number as usual year number (i.e., first two digits are either 19 or 20), which is hundreds years different from the encrypted year data in `ICUSTAY.csv` data. And thus the `CHARTTIME` is moved forward 200 year to get a resonable result (tibble with 673 rows).
+
+7. Distinct the above result tibble by `SUBJECT_ID` after sorting it in ascending order, since multiple systolic measurement could be done for them during their first ICU stay.
+
+8. Join the tibble with `Patients` info, and then mutate it to add variable indicates the life status after 30 days of hospital admission (This ICU admission).
+
+9. Select relevant column and print it.
+
+```{r}
+# Read the CHARTEVENTS data, which has non-default datetime format
+ChartEvent <-read_csv('/home/203bdata/mimic-iii/CHARTEVENTS.csv',
+      col_types = cols(ROW_ID = col_integer(),
+                      SUBJECT_ID = col_integer(),
+                      HADM_ID = col_integer(),
+                      ICUSTAY_ID = col_integer(),
+                      ITEMID = col_integer(),
+                      CHARTTIME = col_datetime(format = "%m/%d/%y %H:%M"),
+                      STORETIME = col_datetime(format = "%m/%d/%y %H:%M"),
+                      CGID = col_integer()
+                      ))
+
+# first two digits of year number added by default is wrong, manualy correct it
+# by adding years?
+ChartEvent_cor <- mutate(ChartEvent, CHARTTIME = CHARTTIME+years(200))
+
+# Read D_ITEMS data
+D_Items <-read_csv('/home/203bdata/mimic-iii/D_ITEMS.csv',
+                 col_types = cols(ROW_ID = col_integer(),
+                                  ITEMID = col_integer(),
+                                  LABEL = col_character(),
+                                  ABBREVIATION = col_character(),
+                                  DBSOURCE = col_character(),
+                                  LINKSTO = col_character(),
+                                  CATEGORY = col_character(),
+                                  UNITNAME = col_character(),
+                                  PARAM_TYPE = col_character(),
+                                  CONCEPTID = col_character() ))
+
+# Filter to get the systolic items
+SystolicItem <-D_Items %>% filter(str_detect(LABEL, 'systolic'))
+
+# Get all the systolic measurement for patients in ICU
+# Get the patient first systolic meas. with inner join and dinstict
+# Arrange used to get the earliest measurement
+
+# Get all the systolic measurement
+SystolicMeas <- ChartEvent_cor %>% 
+  inner_join(SystolicItem, by = "ITEMID") 
+
+# Get first ICU stay
+FirstIcuStay <- arrange(Icustay, INTIME) %>%
+  distinct(SUBJECT_ID, .keep_all = TRUE)
+
+# Get all systolic measurement in first ICU stay by innerjoin, and filter out the
+# measurement did in ICU
+FinalTibble <- inner_join(FirstIcuStay, SystolicMeas, by = "SUBJECT_ID") %>%
+  filter(CHARTTIME>INTIME, CHARTTIME<OUTTIME) %>%
+  
+  # patients can have multiple systolic meas during ICU stay => duplicate keys
+  # arrange by CHARTTIME and get the first meas by dinstinct function
+  arrange(CHARTTIME) %>%
+  distinct(SUBJECT_ID, .keep_all = TRUE)  %>%
+  
+  # left join patients info
+  left_join(Patients, by="SUBJECT_ID") %>%
+  mutate(LifeStatus30d = ifelse(
+    !is.na(DOD)&difftime(DOD,INTIME,units='days')<=30, 'Dead','Live'))%>%
+  select(SUBJECT_ID, INTIME, OUTTIME, ITEMID, CHARTTIME, VALUE, VALUENUM, 
+         VALUEUOM, LABEL, GENDER, DOB, DOD, LifeStatus30d)
+
+
+# Print the tibble
+FinalTibble %>% print(width = Inf)
+
+
+```
