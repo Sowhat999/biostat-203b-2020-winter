@@ -37,33 +37,33 @@ library(lubridate)
 library(fs)
 ```
 
-## Import JHU Google Sheets into R - **EXPIRED on Feb 11**
+<!-- ## Import JHU Google Sheets into R - **EXPIRED on Feb 11** -->
 
-**Since Feb 11, JHU CSSE stops posting data on Google Sheets.**
+<!-- **Since Feb 11, JHU CSSE stops posting data on Google Sheets.** -->
 
-Johns Hopkins University (JHU) Center for Systems Science and Engineering (CSSE) kindly compiles, updates, and shares the current data on 2019-nCoV outbreak at Google Sheets: <https://docs.google.com/spreadsheets/d/1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo>.
+<!-- Johns Hopkins University (JHU) Center for Systems Science and Engineering (CSSE) kindly compiles, updates, and shares the current data on 2019-nCoV outbreak at Google Sheets: <https://docs.google.com/spreadsheets/d/1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo>. -->
 
-We can use the tidyverse package [`googlesheets4`](https://googlesheets4.tidyverse.org) to import data from Google Sheets. Because the JHU sheets are public, we don't need authentication by tokens.
-```{r, eval = FALSE}
-library(googlesheets4)
-# no authentication
-sheets_deauth()
-```
-Import the `confirmed` sheet:
-```{r, eval = FALSE}
-(confirmed <- 
-   read_sheet("1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo", sheet = 2))
-```
-Import the `recovered` sheet:
-```{r, eval = FALSE}
-(recovered <- 
-   read_sheet("1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo", sheet = 3))
-```
-Import the `death` sheet:
-```{r, eval = FALSE}
-(death <- 
-   read_sheet("1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo", sheet = 4))
-```
+<!-- We can use the tidyverse package [`googlesheets4`](https://googlesheets4.tidyverse.org) to import data from Google Sheets. Because the JHU sheets are public, we don't need authentication by tokens. -->
+<!-- ```{r, eval = FALSE} -->
+<!-- library(googlesheets4) -->
+<!-- # no authentication -->
+<!-- sheets_deauth() -->
+<!-- ``` -->
+<!-- Import the `confirmed` sheet: -->
+<!-- ```{r, eval = FALSE} -->
+<!-- (confirmed <-  -->
+<!--    read_sheet("1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo", sheet = 2)) -->
+<!-- ``` -->
+<!-- Import the `recovered` sheet: -->
+<!-- ```{r, eval = FALSE} -->
+<!-- (recovered <-  -->
+<!--    read_sheet("1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo", sheet = 3)) -->
+<!-- ``` -->
+<!-- Import the `death` sheet: -->
+<!-- ```{r, eval = FALSE} -->
+<!-- (death <-  -->
+<!--    read_sheet("1UF2pSkFTURko2OvfHWWlFpDFAr1UxCBA4JLwlSP6KFo", sheet = 4)) -->
+<!-- ``` -->
 
 ## Import JHU SSE data on GitHub into R
 
@@ -71,7 +71,13 @@ Since Feb 11, JHU SSE is hosting 2019 nCoV data on GitHub repo: <https://github.
 
 Let's import the time series data directly from the csv file on GitHub:
 ```{r}
-(confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"))
+(confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
+                       col_names = T,
+                       cols(
+                            .default = "d",
+                            `Province/State` = "c",
+                            `Country/Region` = "c"
+                          )))
 (recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv"))
 (death <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv"))
 ```
