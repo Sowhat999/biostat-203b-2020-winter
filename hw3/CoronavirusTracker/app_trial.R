@@ -8,7 +8,84 @@ source("helpers.R")
 # Define UI for application ----------
 ui <- navbarPage(
     title = "Conronavirus Visualization App",
+    tabPanel("China",
+             
+             ## Plot the distribution map
+             sidebarLayout(
+                 
+                 sidebarPanel(
+                     titlePanel("Map and Trend of Coronavirus"),
+
+                     dateInput("date", label = "Date to Display",
+                               value = "2020-02-18",
+                               format = "yyyy-mm-dd"
+                               ),
+
+                     selectInput("Case", label = "Case to display",
+                                 choices = c("Confirmed" = "confirmed",
+                                             "Death" = "death",
+                                             "Recovered" = "recovered")
+                                 ),
+                     # change the height of the panel
+                     style = "height: 450px"
+                 ),
+                 mainPanel(
+                     wellPanel(plotOutput("ChinaMap"), width = "100%",
+                               style = "padding: 30px;height: 450px")
+                 )
+             ),
+             
+             # add separating space line here maybe?
+             
+             ## Plot the time series of Coronavirus
+             wellPanel(
+             titlePanel("Coronavirus Timeseries in China"),
+             checkboxGroupInput("TS_Case", "choose cases to plot",
+                                choices = c("Confirmed" = "confirmed",
+                                            "Death" = "death",
+                                            "Recovered" = "recovered"),
+                                selected = c("Confirmed" = "confirmed",
+                                             "Death" = "death",
+                                             "Recovered" = "recovered"),
+                                inline = TRUE
+                                ),
+             # make the space height as small as 5px, shrink space gray area
+             style = "padding: 5px",
+             
+             # Maybe use columns to plot two figures? cumulative, and daily increase?
+             plotOutput("ChinaTS", width = "75%")),
+             
+             style = "padding: 5px;",
+             h2("The Data table for above time series"),
+             fluidRow(
+                 column(4, selectInput("Date_T", "Date:",
+                                       c("All", 
+                                         unique(as.character(ncov_tbl$Date))
+                                         )
+                                       )
+                        ),
+                 column(4, selectInput("Province_T", "Province/Region:",
+                                       c("All",
+                                         unique(as.character(
+                                             ncov_tbl$`Province/State`))
+                                         )
+                                       )
+                        ),
+                 column(4, selectInput("Case_T", "Case:",
+                                       c("All", 
+                                         unique(as.character(ncov_tbl$Case))
+                                         )
+                                       )
+                        ),
+                 wellPanel(DT::dataTableOutput("table_CH"))
+
+                     )
+             ),
     
+    tabPanel("World")
+)
+
+
     # tabPanel(title = "Trial_sidebarLayout", # --------------
     #          titlePanel("The distriubtion of Coronavirus"),
     #              sidebarPanel(
@@ -16,7 +93,7 @@ ui <- navbarPage(
     #                  dateInput("date",label = "Date to Display",
     #                            value = "2020-02-18",
     #                            format = "yyyy-mm-dd"),
-    #                  
+    # 
     #                  selectInput("Case", label = "Date to display",
     #                              choices = c("Confirmed" = "confirmed",
     #                                          "Death" = "death",
@@ -41,137 +118,108 @@ ui <- navbarPage(
     #          mainPanel(helpText("HELPPPPPP!!!!!!!!!!!"),plotOutput("ChinaMap"))
     # )
     # )
-#     
-#     tabPanel(title = "Trial_1fluidRow", # --------------
-#              titlePanel("The distriubtion of Coronavirus"),
-#              fluidRow(column(2, wellPanel(
-#                  dateInput("date",
-#                            label = "Date to Display",
-#                            value = "2020-02-18",
-#                            format = "yyyy-mm-dd"),
-#                  
-#                  selectInput("Case", label = "Date to display",
-#                              choices = c("Confirmed" = "confirmed",
-#                              "Death" = "death",
-#                              "Recovered" = "recovered"))
-#              )),
-#              column(width = 10, 
-#                     wellPanel(plotOutput("ChinaMap", width = "100%")))),
-#              
-#              ),
-#     
-    tabPanel(title = "Trial", # --------------
-             titlePanel("The distriubtion of Coronavirus"),
-             fluidRow(column(2, wellPanel(
+   
+    # tabPanel(title = "Trial_1fluidRow", # --------------
+    #          titlePanel("The distriubtion of Coronavirus"),
+    #          fluidRow(column(2, wellPanel(
+    #              dateInput("date",
+    #                        label = "Date to Display",
+    #                        value = "2020-02-18",
+    #                        format = "yyyy-mm-dd"),
+    # 
+    #              selectInput("Case", label = "Date to display",
+    #                          choices = c("Confirmed" = "confirmed",
+    #                          "Death" = "death",
+    #                          "Recovered" = "recovered"))
+    #          )),
+    #          column(width = 10,
+    #                 wellPanel(plotOutput("ChinaMap", width = "100%")))),
+    # 
+    #          ),
+    # 
 
-                                  dateInput('date',
-                                            label = 'Date to display',
-                                            value = "2020-02-18",
-                                            format = "yyyy-mm-dd"),
-
-
-                                  selectInput('Case', label = "Case to display for the map",
-                                              choices = c("Confirmed" = "confirmed",
-                                                          "Death" = "death",
-                                                          "Recovered" = "recovered"))
-                                  # ,tableOutput("Case")
-
-                              )),
-                              # # For Debug
-                              # textOutput("result"),
-                              column(width = 10, wellPanel(plotOutput("ChinaMap", width = "100%")))
-                              ),
-
-                     h2("Coronavirus Timeseries in China"),
-                     checkboxGroupInput("TS_Case", "choose cases to plot",
-                                        choices = c("Confirmed" = "confirmed",
-                                                       "Death" = "death",
-                                                       "Recovered" = "recovered"),
-                                        selected = c("Confirmed" = "confirmed",
-                                                               "Death" = "death",
-                                                               "Recovered" = "recovered")),
-
-                     wellPanel(plotOutput("ChinaTS", width = "100%")),
-
-                     h2("The Data table for above time series"),
-                     # wellPanel(tableOutput("ChinaTbl")),
-
-                     fluidRow(
-                         column(4,
-                                selectInput("Date_T",
-                                            "Date:",
-                                            c("All",
-                                              unique(as.character(ncov_tbl$Date))))
-                         ),
-                         column(4,
-                                selectInput("Province_T",
-                                            "Province/Region:",
-                                            c("All",
-                                              unique(as.character(ncov_tbl$`Province/State`))))
-                         ),
-                         column(4,
-                                selectInput("Case_T",
-                                            "Case:",
-                                            c("All",
-                                              unique(as.character(ncov_tbl$Case))))
-                         )
-                     ),
-                     # Create a new row for the table.
-                     wellPanel(DT::dataTableOutput("table_CH"))
-
-             ),
-
-    tabPanel(title = "China", # ----------------
-    # Application title
-    titlePanel("Map and Trend of Coronavirus"),
-    fluidRow(column(3, wellPanel(
-
-        dateInput('date',
-                  label = 'Date to display',
-                  value = Sys.Date() ),
-
-        # dateInput('date2',
-        #           label = paste('Date input 2: string for starting value,',
-        #                         'dd/mm/yy format, locale ja, range limited,',
-        #                         'week starts on day 1 (Monday)'),
-        #           value = as.character(Sys.Date()),
-        #           min = Sys.Date() - 5, max = Sys.Date() + 5,
-        #           format = "dd/mm/yy",
-        #           startview = 'year', language = 'zh-TW', weekstart = 1),
-
-        selectInput('Case', label = "Case to display for the map",
-                    choices = c("Confirmed" = "Confirmed",
-                                "Death" = "Death",
-                                "Recovered" = "Recovered")),
-        tableOutput("Case")
-
-        )),
-        # column(width = 8, offset = 2, mainPanel(plotOutput("distPlot")))
-        column(8,mainPanel(plotOutput("distPlot")))
-        )
-    ),
-
-    tabPanel(title = "World",
-        titlePanel("Map and Trend of Coronavirus"),
-        fluidRow(column(3, wellPanel(
-
-            dateInput('date',
-                      label = 'Date to display',
-                      value = Sys.Date() ),
-
-
-            selectInput('Case', label = "Case to display for the map",
-                        choices = c("Confirmed" = "Confirmed",
-                                    "Death" = "Death",
-                                    "Recovered" = "Recovered")),
-            tableOutput("Case")
-
-        )),
-
-        column(width = 8, offset = 2, plotOutput("distPlot"))
-        )
-    )
-)
+# tabPanel(title = "China", # --------------
+#          titlePanel("The distriubtion of Coronavirus"),
+#          fluidRow(column(2, wellPanel(
+# 
+#                               dateInput('date',
+#                                         label = 'Date to display',
+#                                         value = "2020-02-18",
+#                                         format = "yyyy-mm-dd"),
+# 
+# 
+#                               selectInput('Case', label = "Case to display for the map",
+#                                           choices = c("Confirmed" = "confirmed",
+#                                                       "Death" = "death",
+#                                                       "Recovered" = "recovered"))
+#                               # ,tableOutput("Case")
+# 
+#                           )),
+#                           # # For Debug
+#                           # textOutput("result"),
+#                           column(width = 10, wellPanel(plotOutput("ChinaMap", width = "100%")))
+#                           ),
+# 
+#                  h2("Coronavirus Timeseries in China"),
+#                  checkboxGroupInput("TS_Case", "choose cases to plot",
+#                                     choices = c("Confirmed" = "confirmed",
+#                                                    "Death" = "death",
+#                                                    "Recovered" = "recovered"),
+#                                     selected = c("Confirmed" = "confirmed",
+#                                                            "Death" = "death",
+#                                                            "Recovered" = "recovered")),
+# 
+#                  wellPanel(plotOutput("ChinaTS", width = "100%")),
+# 
+#                  h2("The Data table for above time series"),
+#                  # wellPanel(tableOutput("ChinaTbl")),
+# 
+#                  fluidRow(
+#                      column(4,
+#                             selectInput("Date_T",
+#                                         "Date:",
+#                                         c("All",
+#                                           unique(as.character(ncov_tbl$Date))))
+#                      ),
+#                      column(4,
+#                             selectInput("Province_T",
+#                                         "Province/Region:",
+#                                         c("All",
+#                                           unique(as.character(ncov_tbl$`Province/State`))))
+#                      ),
+#                      column(4,
+#                             selectInput("Case_T",
+#                                         "Case:",
+#                                         c("All",
+#                                           unique(as.character(ncov_tbl$Case))))
+#                      )
+#                  ),
+#                  # Create a new row for the table.
+#                  wellPanel(DT::dataTableOutput("table_CH"))
+# 
+#          ),
+# 
+# tabPanel(title = "World",
+#     titlePanel("Map and Trend of Coronavirus"),
+#     fluidRow(column(3, wellPanel(
+# 
+#         dateInput('date',
+#                   label = 'Date to display',
+#                   value = Sys.Date() ),
+# 
+# 
+#         selectInput('Case', label = "Case to display for the map",
+#                     choices = c("Confirmed" = "Confirmed",
+#                                 "Death" = "Death",
+#                                 "Recovered" = "Recovered")),
+#         tableOutput("Case")
+# 
+#     )),
+# 
+#     column(width = 8, offset = 2, plotOutput("distPlot"))
+#     )
+# )
+# )
 
 # Define UI for application via fluidPage -------------------------
 # ui <- fluidPage(
@@ -287,7 +335,14 @@ server <- function(input, output) {
             # print()
             ggplot() +
             geom_line(mapping = aes(x = Date, y = total_count, color = Case), size = 2) +
-            scale_color_manual(values = c("red", "black", "green")) +
+            
+            # Old method
+            # scale_color_manual(values = c("red", "black", "green")) +
+            
+            # Assign color to the specific variable instead
+            scale_color_manual(values = c("confirmed" = "red", 
+                                          "death" = "black", 
+                                          "recovered" = "green")) +
             # get rid of scientific notation
             scale_y_continuous(labels = comma)+  #, format(total_count, scientific = F)) +
             labs(y = "Count") +
@@ -321,26 +376,3 @@ server <- function(input, output) {
 # Run the application 
 shinyApp(ui = ui, server = server)
 
-
-# garbage code:
-# tabPanel(title = "World",
-#          titlePanel("Map and Trend of Coronavirus"),
-#          fluidRow(column(3, wellPanel(
-#              
-#              dateInput('date',
-#                        label = 'Date to display',
-#                        value = Sys.Date() ),
-#              
-#              
-#              selectInput('Case', label = "Case to display for the map",
-#                          choices = c("Confirmed" = "Confirmed",
-#                                      "Death" = "Death",
-#                                      "Recovered" = "Recovered")),
-#              tableOutput("Case")
-#              
-#          )),
-#          
-#          column(width = 8, offset = 2, plotOutput("distPlot"))
-#              )
-#     )
-# )
