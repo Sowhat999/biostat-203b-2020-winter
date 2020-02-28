@@ -3,6 +3,7 @@ library(lubridate)
 library(fs)
 library(wesanderson) 
 
+# Translate province/region name from Chinese to English name
 translate <- function(x) {
   sapply(x, function(chn_name) {
     if (str_detect(chn_name, "澳门")) {
@@ -82,16 +83,58 @@ translate <- function(x) {
   })
 }
 
-# Table for Coronavirus
-ncov_tbl <- read_csv("ncov_tbl.csv", col_names = T, cols(
-  `Province/State` = col_character(),
-  `Country/Region` = col_character(),
-  Lat = col_double(),
-  Long = col_double(),
-  Date = col_date(format = "%F"),
-  Case = col_character(),
-  Count = col_integer())
-) 
+## Read "real-time" data from GitHub 
+# Read Coronavirus Data from JHU SSE GitHub repo: <https://github.com/CSSEGISandData/2019-nCoV>
+confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
+                       col_names = T,
+                       cols(.default = "d",
+                            `Province/State` = "c",
+                            `Country/Region` = "c")) %>%
+  # tidy the data, minus sign indicates using the other columns for pivoting
+  pivot_longer(-(`Province/State`:Long), 
+               names_to = "Date", 
+               values_to = "confirmed") %>%
+  mutate(Date = (mdy(Date))) # convert string to date-time
+
+recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv",
+                       col_names = T,
+                       cols(.default = "d",
+                            `Province/State` = "c",
+                            `Country/Region` = "c")) %>%
+  pivot_longer(-(`Province/State`:Long), 
+               names_to = "Date", 
+               values_to = "recovered") %>%
+  mutate(Date = mdy(Date))
+
+death <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv",
+                   col_names = T,
+                   cols(.default = "d",
+                        `Province/State` = "c",
+                        `Country/Region` = "c")) %>%
+  pivot_longer(-(`Province/State`:Long), 
+               names_to = "Date", 
+               values_to = "death") %>%
+  mutate(Date = mdy(Date))
+
+# Join data for all three cases, confirmed, death and recovered
+ncov_tbl <- confirmed %>%
+  left_join(recovered) %>%
+  left_join(death) %>%
+  pivot_longer(confirmed:death, 
+               names_to = "Case", 
+               values_to = "Count")
+  
+
+## Read data from organized table for Coronavirus
+# ncov_tbl <- read_csv("ncov_tbl.csv", col_names = T, cols(
+#   `Province/State` = col_character(),
+#   `Country/Region` = col_character(),
+#   Lat = col_double(),
+#   Long = col_double(),
+#   Date = col_date(format = "%F"),
+#   Case = col_character(),
+#   Count = col_integer())
+# ) 
 
 # Table for Coronavirus situation in China
 ncov_ch_tbl <- ncov_tbl %>%
