@@ -99,8 +99,11 @@ ui <- fluidPage(
     h2("Coronavirus Timeseries in China"),
     checkboxGroupInput("TS_Case", "choose cases to plot",
                        choices = c("Confirmed" = "confirmed",
-                                   "Death" = "death",
-                                   "Recovered" = "recovered")),
+                                      "Death" = "death",
+                                      "Recovered" = "recovered"),
+                       selected = c("Confirmed" = "confirmed",
+                                              "Death" = "death",
+                                              "Recovered" = "recovered")),
                        # selected = c("confirmed",
                        #              "death",
                        #              "recovered"),
@@ -228,7 +231,7 @@ server <- function(input, output) {
     })
     
     output$table_Trial <- DT::renderDataTable(DT::datatable({
-        data <- ncov_ch_tbl
+        data <- ncov_ch_tbl[, c(1,5,6,7)]
         if (input$Date_T != "All") {
             data <- data[data$Date == input$Date_T,]
         }
