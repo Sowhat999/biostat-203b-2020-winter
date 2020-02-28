@@ -1,7 +1,8 @@
 library(tidyverse)
 library(lubridate)
-library(fs)
+library(sf)
 library(wesanderson) 
+library(scales)
 
 # Translate province/region name from Chinese to English name
 translate <- function(x) {

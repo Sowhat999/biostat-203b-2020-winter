@@ -5,7 +5,7 @@ library(shiny)
 # Source helpers ----
 source("helpers.R")
 
-# Define UI for application ----------
+# Define UI for application in navbarPage ----------
 ui <- navbarPage(
     title = "Conronavirus Visualization App",
     tabPanel("China",
@@ -14,10 +14,11 @@ ui <- navbarPage(
              sidebarLayout(
                  
                  sidebarPanel(
-                     titlePanel("Map and Trend of Coronavirus"),
+                     titlePanel("Coronavirus Case Distribution Map"),
 
                      dateInput("date", label = "Date to Display",
-                               value = "2020-02-18",
+                               # use the day before today cause time dif
+                               value = as.character(Sys.Date()-days(1)),
                                format = "yyyy-mm-dd"
                                ),
 
@@ -26,12 +27,14 @@ ui <- navbarPage(
                                              "Death" = "death",
                                              "Recovered" = "recovered")
                                  ),
-                     # change the height of the panel
+                     # change the height of the sidebarpanel
                      style = "height: 450px"
                  ),
                  mainPanel(
-                     wellPanel(plotOutput("ChinaMap"), width = "100%",
-                               style = "padding: 30px;height: 450px")
+                     wellPanel(plotOutput("ChinaMap", height = "440px"),
+                               # change the padding of the wellPanel, also
+                               # make the height consistent with sidebarpanel
+                               style = "padding: 5px;height: 450px")
                  )
              ),
              
@@ -39,7 +42,7 @@ ui <- navbarPage(
              
              ## Plot the time series of Coronavirus
              wellPanel(
-             titlePanel("Coronavirus Timeseries in China"),
+             titlePanel("Coronavirus Case Timeseries"),
              checkboxGroupInput("TS_Case", "choose cases to plot",
                                 choices = c("Confirmed" = "confirmed",
                                             "Death" = "death",
@@ -51,13 +54,17 @@ ui <- navbarPage(
                                 ),
              # make the space height as small as 5px, shrink space gray area
              style = "padding: 5px",
+             ),
              
-             # Maybe use columns to plot two figures? cumulative, and daily increase?
-             plotOutput("ChinaTS", width = "75%")),
-             
-             style = "padding: 5px;",
-             h2("The Data table for above time series"),
+             # Use columns to plot two figures: cumulative, and daily increase
+             # plotOutput("ChinaTS_inc", width = "75%")
              fluidRow(
+             column(6, plotOutput("ChinaTS_cum", width = "75%")),
+             column(6, plotOutput("ChinaTS_inc", width = "75%"))
+             ),
+             
+             fluidRow(
+                 column(12,h2("The Data table for above time series")),
                  column(4, selectInput("Date_T", "Date:",
                                        c("All", 
                                          unique(as.character(ncov_tbl$Date))
@@ -319,14 +326,17 @@ server <- function(input, output) {
             scale_fill_gradientn(colors = wes_palette("Zissou1", 100, type = "continuous"),
                                  trans = "log10") + # can we find a better palette?
             # #scale_fill_brewer(palette = "Dark2") +
-            theme_bw() #+
-            # labs(title = str_c(input$Case, " cases"), subtitle = input$date)
+            theme_bw() +
+            theme(text = element_text(size=20))+
+            labs(title = str_c(input$Case, " cases"), subtitle = input$date)
     })
     
-    # # time series of different cases in China
-    output$ChinaTS <- renderPlot({
+    ## time series of different cases in China
+    # cumulative count
+    output$ChinaTS_cum <- renderPlot({
         ncov_tbl %>%
-            filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) %>%
+            filter(`Country/Region` %in% c("Mainland China", "Macau",
+                                           "Hong Kong", "Taiwan")) %>%
             # group_by(input$date, input$Case) %>%
             group_by(Date, Case) %>%
             summarise(total_count = sum(Count)) %>%
@@ -334,7 +344,8 @@ server <- function(input, output) {
             # filter(Case %in% c(Confirmed, Death, Recovered)) %>%
             # print()
             ggplot() +
-            geom_line(mapping = aes(x = Date, y = total_count, color = Case), size = 2) +
+            geom_line(mapping = aes(x = Date, y = total_count, color = Case),
+                      size = 2) +
             
             # Old method
             # scale_color_manual(values = c("red", "black", "green")) +
@@ -344,9 +355,47 @@ server <- function(input, output) {
                                           "death" = "black", 
                                           "recovered" = "green")) +
             # get rid of scientific notation
+            scale_y_continuous(labels = comma)+  
+            labs(y = "Count") +
+            theme_bw()+
+            theme(text = element_text(size=20))+
+            labs(title = "Time Series of Cumulative Count")
+    })
+    
+    # daily increased count for different cases
+    output$ChinaTS_inc <- renderPlot({
+        # Calcuate the daily increment
+        b <- ncov_tbl %>%
+            filter(`Country/Region` %in% c("Mainland China", "Macau", 
+                                           "Hong Kong", "Taiwan")) %>%
+            # group_by(input$date, input$Case) %>%
+            group_by(Date, Case) %>%
+            summarise(total_count = sum(Count)) %>%
+            mutate(increment = NA)
+        # b <- c %>% mutate(trial = ifelse(Date > "2020-01-22" | Date < Sys.Date(),  ))
+        b$increment[4:(nrow(b)-3)] = b$total_count[4:nrow(b)] - 
+            b$total_count[1:(nrow(b)-3)]
+        
+        # Plot
+        b %>%
+            filter(Case %in% c(input$TS_Case)) %>%
+            ggplot() +
+            geom_line(mapping = aes(x = Date, y = increment, color = Case), 
+                      size = 2) +
+
+            # Old method
+            # scale_color_manual(values = c("red", "black", "green")) +
+
+            # Assign color to the specific variable instead
+            scale_color_manual(values = c("confirmed" = "red",
+                                          "death" = "black",
+                                          "recovered" = "green")) +
+            # get rid of scientific notation
             scale_y_continuous(labels = comma)+  #, format(total_count, scientific = F)) +
             labs(y = "Count") +
-            theme_bw()
+            theme_bw()+
+            theme(text = element_text(size=20))+
+            labs(title = "Time Series of Daily Increment")
     })
     
     # output$ChinaTbl <- renderTable({
