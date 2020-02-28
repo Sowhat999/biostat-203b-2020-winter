@@ -91,8 +91,18 @@ ncov_tbl <- read_csv("ncov_tbl.csv", col_names = T, cols(
   Date = col_date(format = "%F"),
   Case = col_character(),
   Count = col_integer())
-)
+) 
+# %>%
+#   filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) 
 
-chn_prov <- chn_map %>% 
+chn_map <- st_read("bou2_4p.shp", as_tibble = TRUE) %>%
+  mutate(NAME = iconv(NAME, from = "GBK"),
+         BOU2_4M_ = as.integer(BOU2_4M_),
+         BOU2_4M_ID = as.integer(BOU2_4M_ID)) %>%
+  mutate(NAME = str_replace_na(NAME, replacement = "澳门特别行政区"))
+
+# chn_prov <- read_csv("chn_prov.csv")
+
+chn_prov <- chn_map %>%
   count(NAME) %>%
   mutate(NAME_ENG = translate(NAME)) # translate function is vectorized

@@ -83,18 +83,56 @@ ui <- fluidPage(
                  selectInput('Case', label = "Case to display for the map",
                              choices = c("Confirmed" = "confirmed",
                                          "Death" = "death",
-                                         "Recovered" = "recovered")),
-                 tableOutput("Case")
+                                         "Recovered" = "recovered"))
+                 # ,tableOutput("Case")
                  
              )),
-             # For Debug
+             # # For Debug
              # textOutput("result"),
              
              # column(8,mainPanel(plotOutput("ChinaMap")))
              # column(width = 8, offset = 2, mainPanel(plotOutput("ChinaMap")))
              # column(width = 10, mainPanel(plotOutput("ChinaMap")))
              column(width = 10, wellPanel(plotOutput("ChinaMap", width = "100%")))
-             )
+             ),
+    
+    h2("Coronavirus Timeseries in China"),
+    checkboxGroupInput("TS_Case", "choose cases to plot",
+                       choices = c("Confirmed" = "confirmed",
+                                   "Death" = "death",
+                                   "Recovered" = "recovered")),
+                       # selected = c("confirmed",
+                       #              "death",
+                       #              "recovered"),
+
+    wellPanel(plotOutput("ChinaTS", width = "100%")),
+    
+    h2("The Data table for above time series"),
+    # wellPanel(tableOutput("ChinaTbl")),
+    
+    fluidRow(
+        column(4,
+               selectInput("Date_T",
+                           "Date:",
+                           c("All",
+                             unique(as.character(ncov_tbl$Date))))
+        ),
+        column(4,
+               selectInput("Province_T",
+                           "Province/Region:",
+                           c("All",
+                             unique(as.character(ncov_tbl$`Province/State`))))
+        ),
+        column(4,
+               selectInput("Case_T",
+                           "Case:",
+                           c("All",
+                             unique(as.character(ncov_tbl$Case))))
+        )
+    ),
+    # Create a new row for the table.
+    wellPanel(DT::dataTableOutput("table_Trial"))
+    
     )
     
     # tabPanel(title = "World",
@@ -144,8 +182,8 @@ server <- function(input, output) {
         ncov_tbl %>%
             filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) %>%
             # filter(Date == plotdate, Case == case) %>%
-            filter(Date == as.character(input$date), 
-                   Case == as.character(input$Case)) %>%
+            filter(Date == input$date, 
+                   Case == input$Case) %>%
             group_by(`Province/State`) %>%
             top_n(1, Date) %>% # take the latest count on that date
             right_join(chn_prov, by = c("Province/State" = "NAME_ENG")) %>%
@@ -160,9 +198,52 @@ server <- function(input, output) {
             scale_fill_gradientn(colors = wes_palette("Zissou1", 100, type = "continuous"),
                                  trans = "log10") + # can we find a better palette?
             # #scale_fill_brewer(palette = "Dark2") +
-            theme_bw() +
-            labs(title = str_c(case, " cases"), subtitle = plotdate)
+            theme_bw() #+
+            # labs(title = str_c(input$Case, " cases"), subtitle = input$date)
     })
+    
+    output$ChinaTS <- renderPlot({
+        ncov_tbl %>%
+            filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) %>%
+            # group_by(input$date, input$Case) %>%
+            group_by(Date, Case) %>%
+            summarise(total_count = sum(Count)) %>%
+            filter(Case %in% c(input$TS_Case)) %>%
+            # filter(Case %in% c(Confirmed, Death, Recovered)) %>%
+            # print()
+            ggplot() +
+            geom_line(mapping = aes(x = Date, y = total_count, color = Case), size = 2) +
+            scale_color_manual(values = c("red", "black", "green")) +
+            # get rid of scientific notation
+            scale_y_continuous(labels = comma)+  #, format(total_count, scientific = F)) +
+            labs(y = "Count") +
+            theme_bw()
+    })
+    
+    ncov_ch_tbl <- ncov_tbl %>%
+        filter(`Country/Region` %in% c("Mainland China",
+                                       "Macau", "Hong Kong", "Taiwan"))
+    output$ChinaTbl <- renderTable({
+        ncov_ch_tbl[, c(1,5,6,7)]
+    })
+    
+    output$table_Trial <- DT::renderDataTable(DT::datatable({
+        data <- ncov_ch_tbl
+        if (input$Date_T != "All") {
+            data <- data[data$Date == input$Date_T,]
+        }
+        if (input$Province_T != "All") {
+            data <- data[data$`Province/State` == input$Province_T,]
+        }
+        if (input$Case_T != "All") {
+            data <- data[data$Case == input$Case_T,]
+        }
+        data
+        }))
+    # # For Debug
+    # output$result <- renderText({
+    #     paste("You chose", class(input$TS_Case))})
+
 }
 
 # Run the application 
