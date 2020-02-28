@@ -82,7 +82,7 @@ translate <- function(x) {
   })
 }
 
-
+# Table for Coronavirus
 ncov_tbl <- read_csv("ncov_tbl.csv", col_names = T, cols(
   `Province/State` = col_character(),
   `Country/Region` = col_character(),
@@ -92,9 +92,13 @@ ncov_tbl <- read_csv("ncov_tbl.csv", col_names = T, cols(
   Case = col_character(),
   Count = col_integer())
 ) 
-# %>%
-#   filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) 
 
+# Table for Coronavirus situation in China
+ncov_ch_tbl <- ncov_tbl %>%
+  filter(`Country/Region` %in% c("Mainland China",
+                                 "Macau", "Hong Kong", "Taiwan"))
+
+# Read china map geometries
 chn_map <- st_read("bou2_4p.shp", as_tibble = TRUE) %>%
   mutate(NAME = iconv(NAME, from = "GBK"),
          BOU2_4M_ = as.integer(BOU2_4M_),

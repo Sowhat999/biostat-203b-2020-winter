@@ -1,101 +1,40 @@
 #
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
+# This is a Shiny web application. Developed by Burson Tang, UID: 305068045
 library(shiny)
 
 # Source helpers ----
 source("helpers.R")
 
-# # Define UI for application that draws a histogram
-# ui <- navbarPage(
-#     title = "Conronavirus Visualization App",
-# 
-#     tabPanel(title = "China",
-#     # Application title
-#     titlePanel("Map and Trend of Coronavirus"),
-#     fluidRow(column(3, wellPanel(
-# 
-#         dateInput('date',
-#                   label = 'Date to display',
-#                   value = Sys.Date() ),
-# 
-#         # dateInput('date2',
-#         #           label = paste('Date input 2: string for starting value,',
-#         #                         'dd/mm/yy format, locale ja, range limited,',
-#         #                         'week starts on day 1 (Monday)'),
-#         #           value = as.character(Sys.Date()),
-#         #           min = Sys.Date() - 5, max = Sys.Date() + 5,
-#         #           format = "dd/mm/yy",
-#         #           startview = 'year', language = 'zh-TW', weekstart = 1),
-# 
-#         selectInput('Case', label = "Case to display for the map",
-#                     choices = c("Confirmed" = "Confirmed",
-#                                 "Death" = "Death",
-#                                 "Recovered" = "Recovered")),
-#         tableOutput("Case")
-# 
-#         )),
-#         # column(width = 8, offset = 2, mainPanel(plotOutput("distPlot")))
-#         column(8,mainPanel(plotOutput("distPlot")))
-#         )
-#     ),
-# 
-#     tabPanel(title = "World",
-#         titlePanel("Map and Trend of Coronavirus"),
-#         fluidRow(column(3, wellPanel(
-# 
-#             dateInput('date',
-#                       label = 'Date to display',
-#                       value = Sys.Date() ),
-# 
-# 
-#             selectInput('Case', label = "Case to display for the map",
-#                         choices = c("Confirmed" = "Confirmed",
-#                                     "Death" = "Death",
-#                                     "Recovered" = "Recovered")),
-#             tableOutput("Case")
-# 
-#         )),
-# 
-#         column(width = 8, offset = 2, plotOutput("distPlot"))
-#         )
-#     )
-# )
 
-# Define UI for application that draws a histogram
+
+# Define UI for application via fluidPage -------------------------
 ui <- fluidPage(
     # Application title
     titlePanel("Map and Trend of Coronavirus"),
     fluidRow(column(2, wellPanel(
-                 
+
                  dateInput('date',
                            label = 'Date to display',
                            value = "2020-02-18",
                            format = "yyyy-mm-dd"),
-                 
-                 
+
+
                  selectInput('Case', label = "Case to display for the map",
                              choices = c("Confirmed" = "confirmed",
                                          "Death" = "death",
                                          "Recovered" = "recovered"))
                  # ,tableOutput("Case")
-                 
+
              )),
              # # For Debug
              # textOutput("result"),
-             
+
              # column(8,mainPanel(plotOutput("ChinaMap")))
              # column(width = 8, offset = 2, mainPanel(plotOutput("ChinaMap")))
              # column(width = 10, mainPanel(plotOutput("ChinaMap")))
              column(width = 10, wellPanel(plotOutput("ChinaMap", width = "100%")))
              ),
-    
+
     h2("Coronavirus Timeseries in China"),
     checkboxGroupInput("TS_Case", "choose cases to plot",
                        choices = c("Confirmed" = "confirmed",
@@ -109,10 +48,10 @@ ui <- fluidPage(
                        #              "recovered"),
 
     wellPanel(plotOutput("ChinaTS", width = "100%")),
-    
+
     h2("The Data table for above time series"),
     # wellPanel(tableOutput("ChinaTbl")),
-    
+
     fluidRow(
         column(4,
                selectInput("Date_T",
@@ -134,53 +73,18 @@ ui <- fluidPage(
         )
     ),
     # Create a new row for the table.
-    wellPanel(DT::dataTableOutput("table_Trial"))
-    
+    wellPanel(DT::dataTableOutput("table_CH"))
+
     )
     
-    # tabPanel(title = "World",
-    #          titlePanel("Map and Trend of Coronavirus"),
-    #          fluidRow(column(3, wellPanel(
-    #              
-    #              dateInput('date',
-    #                        label = 'Date to display',
-    #                        value = Sys.Date() ),
-    #              
-    #              
-    #              selectInput('Case', label = "Case to display for the map",
-    #                          choices = c("Confirmed" = "Confirmed",
-    #                                      "Death" = "Death",
-    #                                      "Recovered" = "Recovered")),
-    #              tableOutput("Case")
-    #              
-    #          )),
-    #          
-    #          column(width = 8, offset = 2, plotOutput("distPlot"))
-#              )
-#     )
-# )
 
-
-
-# Define server logic required to draw a histogram
+# Define server logic for plots and tables ------------
 server <- function(input, output) {
-
-    # output$distPlot <- renderPlot({
-    #     # generate bins based on input$bins from ui.R
-    #     x    <- faithful[, 2]
-    #     bins <- seq(min(x), max(x), length.out = 1)
-    # 
-    #     # draw the histogram with the specified number of bins
-    #     hist(x, breaks = bins, col = 'darkgray', border = 'white')
-    # })
     
     plotdate <- "2020-02-18"
     case <- "confirmed"
-    
-    # # For Debug
-    # output$result <- renderText({
-    #     paste("You chose", input$date, input$Case, class(input$date), input$date =="2020-02-18",input$Case =="confirmed")})
-    
+
+    # # Distribution map in china
     output$ChinaMap <- renderPlot({
         ncov_tbl %>%
             filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) %>%
@@ -205,6 +109,7 @@ server <- function(input, output) {
             # labs(title = str_c(input$Case, " cases"), subtitle = input$date)
     })
     
+    # # time series of different cases in China
     output$ChinaTS <- renderPlot({
         ncov_tbl %>%
             filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) %>%
@@ -223,14 +128,15 @@ server <- function(input, output) {
             theme_bw()
     })
     
-    ncov_ch_tbl <- ncov_tbl %>%
-        filter(`Country/Region` %in% c("Mainland China",
-                                       "Macau", "Hong Kong", "Taiwan"))
-    output$ChinaTbl <- renderTable({
-        ncov_ch_tbl[, c(1,5,6,7)]
-    })
+    # # Table for Coronavirus situation in China
+    # ncov_ch_tbl <- ncov_tbl %>%
+    #     filter(`Country/Region` %in% c("Mainland China",
+    #                                    "Macau", "Hong Kong", "Taiwan"))
+    # output$ChinaTbl <- renderTable({
+    #     ncov_ch_tbl[, c(1,5,6,7)]
+    # })
     
-    output$table_Trial <- DT::renderDataTable(DT::datatable({
+    output$table_CH <- DT::renderDataTable(DT::datatable({
         data <- ncov_ch_tbl[, c(1,5,6,7)]
         if (input$Date_T != "All") {
             data <- data[data$Date == input$Date_T,]
@@ -243,6 +149,7 @@ server <- function(input, output) {
         }
         data
         }))
+    
     # # For Debug
     # output$result <- renderText({
     #     paste("You chose", class(input$TS_Case))})
@@ -251,3 +158,27 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
+
+# garbage code:
+# tabPanel(title = "World",
+#          titlePanel("Map and Trend of Coronavirus"),
+#          fluidRow(column(3, wellPanel(
+#              
+#              dateInput('date',
+#                        label = 'Date to display',
+#                        value = Sys.Date() ),
+#              
+#              
+#              selectInput('Case', label = "Case to display for the map",
+#                          choices = c("Confirmed" = "Confirmed",
+#                                      "Death" = "Death",
+#                                      "Recovered" = "Recovered")),
+#              tableOutput("Case")
+#              
+#          )),
+#          
+#          column(width = 8, offset = 2, plotOutput("distPlot"))
+#              )
+#     )
+# )
