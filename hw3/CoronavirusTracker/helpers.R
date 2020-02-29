@@ -3,6 +3,14 @@ library(lubridate)
 library(sf)
 library(wesanderson) 
 library(scales)
+library(leaflet)
+library(RColorBrewer)
+
+# set color for different case
+palette(brewer.pal(n = 8, name = "Dark2"))
+cl_case = c("confirmed" = palette()[2], 
+            "death" = palette()[8], 
+            "recovered" = palette()[5])
 
 # Translate province/region name from Chinese to English name
 translate <- function(x) {
@@ -137,7 +145,7 @@ ncov_tbl <- confirmed %>%
 #   Count = col_integer())
 # ) 
 
-# Table for Coronavirus situation in China
+# Get table for Coronavirus situation in China
 ncov_ch_tbl <- ncov_tbl %>%
   filter(`Country/Region` %in% c("Mainland China",
                                  "Macau", "Hong Kong", "Taiwan"))
@@ -149,6 +157,7 @@ chn_map <- st_read("bou2_4p.shp", as_tibble = TRUE) %>%
          BOU2_4M_ID = as.integer(BOU2_4M_ID)) %>%
   mutate(NAME = str_replace_na(NAME, replacement = "澳门特别行政区"))
 
+# Read china geometries from table? Not working because of the geometry class
 # chn_prov <- read_csv("chn_prov.csv")
 
 chn_prov <- chn_map %>%
