@@ -39,7 +39,8 @@ ui <- navbarPage(
              ),
              
              # add separating space line here maybe?
-             
+             br(),
+             br(),
              ## Plot the time series of Coronavirus
              wellPanel(
                  titlePanel("Coronavirus Case Timeseries"),
@@ -59,9 +60,12 @@ ui <- navbarPage(
              # Use columns to plot two figures: cumulative, and daily increase
              # plotOutput("ChinaTS_inc", width = "75%")
              fluidRow(
-                 column(6, plotOutput("ChinaTS_cum", width = "75%")),
-                 column(6, plotOutput("ChinaTS_inc", width = "75%"))
+                 column(6, plotOutput("ChinaTS_cum", width = "100%")),
+                 column(6, plotOutput("ChinaTS_inc", width = "100%"))
              ),
+             
+             br(),
+             br(),
              
              fluidRow(
                  column(12,h2("The Data table for above time series")),
@@ -90,23 +94,53 @@ ui <- navbarPage(
     ),
     
     tabPanel("World",
-             sidebarPanel(titlePanel("World Wide Coronavirus Case Distribution"),
-                          helpText("Change the selection to start ploting"),
-                          helpText("Click the circle on the map for detials"),
-                          dateInput("Date_w", label = "Date to Display",
-                                    # use the day before today cause time dif
-                                    value = as.character(Sys.Date()-days(1)),
-                                    format = "yyyy-mm-dd"
-                          ),
+             sidebarLayout(
+                 sidebarPanel(titlePanel("World Wide Coronavirus Case Distribution"),
+                              helpText("Change the selection to start ploting"),
+                              helpText("Click the circle on the map for detials"),
+                              dateInput("Date_w", label = "Date to Display",
+                                        # use the day before today cause time dif
+                                        value = as.character(Sys.Date()-days(1)),
+                                        format = "yyyy-mm-dd"
+                                        ),
                           
-                          selectInput("Case_w", label = "Case to display",
-                                      choices = c("Confirmed" = "confirmed",
-                                                  "Death" = "death",
-                                                  "Recovered" = "recovered")
-                          ),
-                          style = "height: 450px; padding: 5px;"
+                              selectInput("Case_w", label = "Case to display",
+                                          choices = c("Confirmed" = "confirmed",
+                                                      "Death" = "death",
+                                                      "Recovered" = "recovered")
+                                          ),
+                              style = "height: 450px; padding: 5px;"
+                              ),
+                 mainPanel(leafletOutput("mymap", height = 450))
+                 ),
+             br(),
+             br(),
+             sidebarLayout(
+                 sidebarPanel(
+                     titlePanel("Coronavirus case histogram for country other than China"),
+                     
+                     # For debugging
+                     # textOutput("debugtext"),
+                     
+                     dateInput("Date_bp", label = "Date to Display",
+                               # use the day before today cause time dif
+                               value = as.character(Sys.Date()-days(1)),
+                               format = "yyyy-mm-dd"
+                     ),
+                     br(),
+                     br(),
+                     sliderInput("range_bp",
+                                 "Plot country with historical confirmed case in the range",
+                                 min = 1, max = 5000, value = c(200,3000)),
+                     # make the space height as small as 5px, shrink space gray area
+                     style = "height: 380px; padding: 5px"
+                 ),
+                 
+                 mainPanel(
+                     plotOutput("Barplot", width = "100%")
+                 )
+
              ),
-             mainPanel(leafletOutput("mymap", height = 450))
     )
 )
 
@@ -120,7 +154,8 @@ server <- function(input, output) {
     # # Distribution map in china
     output$ChinaMap <- renderPlot({
         ncov_tbl %>%
-            filter(`Country/Region` %in% c("Mainland China", "Macau", "Hong Kong", "Taiwan")) %>%
+            filter(`Country/Region` %in% c("Mainland China", "Macau", 
+                                           "Hong Kong", "Taiwan")) %>%
             # filter(Date == plotdate, Case == case) %>%
             filter(Date == input$Date_chm, 
                    Case == input$Case_chm) %>%
@@ -264,6 +299,34 @@ server <- function(input, output) {
                        color = "red",fillColor = cl_maker(), fillOpacity = 0.7,
                        popup = ~paste("Total ",input$Case_w," number:",Count)
             )
+    })
+    
+    output$Barplot <- renderPlot({
+        # date = Sys.Date() - days(1)
+        ncov_tbl %>%
+            filter(`Country/Region` %!in% c("Mainland China", "Macau", 
+                                           "Hong Kong", "Taiwan"), 
+                   `Date` == input$Date_bp) %>%
+                   # `Date` == Sys.Date()-days(1)) %>%
+            # group_by(`Province/State`) %>%
+            group_by(`Country/Region`) %>%
+            filter(sum(Count) > input$range_bp[1] & sum(Count) < input$range_bp[2]) %>%
+            # summarise(total_count = sum(Count)) %>%
+            ggplot() +
+            geom_col(mapping = aes(x = `Country/Region`, 
+                                   y = `Count`, fill = `Case`)) + 
+            # make the fill color consistent
+            scale_fill_manual("", values = cl_case) +
+            scale_y_continuous(labels = comma)+
+            labs(title = input$Date_bp) + 
+            # theme(text = element_text(size=20))+
+            theme(axis.text.x = element_text(angle = 90), 
+                  text = element_text(size=20))
+    })
+    
+    # Text output for debuging and checking input class etc
+    output$debugtext <- renderText({
+        paste(input$range_bp[2],"and", input$range_bp[1])
     })
 }
 

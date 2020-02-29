@@ -12,6 +12,9 @@ cl_case = c("confirmed" = palette()[2],
             "death" = palette()[8], 
             "recovered" = palette()[5])
 
+# negative in function
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
 # Translate province/region name from Chinese to English name
 translate <- function(x) {
   sapply(x, function(chn_name) {
