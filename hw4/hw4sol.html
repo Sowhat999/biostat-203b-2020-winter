@@ -9,6 +9,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Burson Tang UID#305068045" />
 
 
 <title>Biostat 203B Homework 4</title>
@@ -363,6 +364,7 @@ summary {
 
 <h1 class="title toc-ignore">Biostat 203B Homework 4</h1>
 <h3 class="subtitle">Due Mar 20 @ 11:59PM</h3>
+<h4 class="author">Burson Tang UID#305068045</h4>
 
 </div>
 
@@ -370,8 +372,10 @@ summary {
 <ul>
 <li><a href="#task">Task</a></li>
 <li><a href="#learning-resources-about-analyzing-ehr-data">Learning resources about analyzing EHR data</a></li>
-<li><a href="#examplary-code">Examplary code</a><ul>
-<li><a href="#connect-to-postgressql-database">Connect to PostgresSQL database</a></li>
+<li><a href="#title-mortality-rate-of-influenza-patients-admitted-to-the-hospital">Title: Mortality Rate of Influenza Patients Admitted to the Hospital</a><ul>
+<li><a href="#introduction">1. Introduction</a></li>
+<li><a href="#data-preparation">2. Data Preparation</a></li>
+<li><a href="#examples">Examples:</a></li>
 <li><a href="#connect-to-a-table-in-database">Connect to a table in database</a></li>
 <li><a href="#query-and-subsetting">Query and subsetting</a></li>
 <li><a href="#transform-and-augment-query-tables">Transform and augment query tables</a></li>
@@ -401,21 +405,26 @@ summary {
 <li><p><em>The Book of OHDSI</em>: <a href="https://ohdsi.github.io/TheBookOfOhdsi/" class="uri">https://ohdsi.github.io/TheBookOfOhdsi/</a>.</p></li>
 <li><p>The GitHub repository <a href="https://github.com/MIT-LCP/mimic-code" class="uri">https://github.com/MIT-LCP/mimic-code</a> contains some code examples for working with the MIMIC-III data. Following sample code derives from <a href="https://github.com/MIT-LCP/mimic-code/blob/master/tutorials/dplyr-frontend/intro.md" class="uri">https://github.com/MIT-LCP/mimic-code/blob/master/tutorials/dplyr-frontend/intro.md</a>.</p></li>
 </ul>
+<p><em>Report starts here</em></p>
 </div>
-<div id="examplary-code" class="section level1">
-<h1>Examplary code</h1>
-<div id="connect-to-postgressql-database" class="section level2">
-<h2>Connect to PostgresSQL database</h2>
+<div id="title-mortality-rate-of-influenza-patients-admitted-to-the-hospital" class="section level1">
+<h1>Title: Mortality Rate of Influenza Patients Admitted to the Hospital</h1>
+<!-- or maybe influenza? -->
+<div id="introduction" class="section level2">
+<h2>1. Introduction</h2>
+</div>
+<div id="data-preparation" class="section level2">
+<h2>2. Data Preparation</h2>
 <p>Load database libraries and the tidyverse frontend:</p>
 <pre class="r"><code>library(DBI)
 library(RPostgreSQL)
 library(tidyverse)</code></pre>
-<pre><code>## ── Attaching packages ─────────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
+<pre><code>## ── Attaching packages ───────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
 <pre><code>## ✓ ggplot2 3.2.1     ✓ purrr   0.3.3
 ## ✓ tibble  2.1.3     ✓ dplyr   0.8.4
 ## ✓ tidyr   1.0.2     ✓ stringr 1.4.0
 ## ✓ readr   1.3.1     ✓ forcats 0.4.0</code></pre>
-<pre><code>## ── Conflicts ────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+<pre><code>## ── Conflicts ──────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## x dplyr::filter() masks stats::filter()
 ## x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(lubridate)</code></pre>
@@ -424,7 +433,7 @@ library(tidyverse)</code></pre>
 <pre><code>## The following object is masked from 'package:base':
 ## 
 ##     date</code></pre>
-<p>Credentials for using PostgreSQL database. We are going to use username <code>postgres</code> with password <code>postgres</code> to access the <code>mimic</code> database in the schemee <code>mimiciii</code>.</p>
+<p>Connect to PostgresSQL datanase: Credentials for using PostgreSQL database. We are going to use username <code>postgres</code> with password <code>postgres</code> to access the <code>mimic</code> database in the schemee <code>mimiciii</code>.</p>
 <pre class="r"><code># Load configuration settings
 dbdriver &lt;- 'PostgreSQL'
 #host  &lt;- '127.0.0.1'
@@ -445,8 +454,8 @@ dbExecute(con, paste(&quot;SET search_path TO &quot;, schema, sep=&quot; &quot;)
 <pre><code>## [1] 0</code></pre>
 <pre class="r"><code>con</code></pre>
 <pre><code>## &lt;PostgreSQLConnection&gt;</code></pre>
-<p>List tables in the <code>mimic</code> database:</p>
-<pre class="r"><code>dbListTables(con)</code></pre>
+<pre class="r"><code># List tables in the `mimic` database:
+dbListTables(con)</code></pre>
 <pre><code>##   [1] &quot;admissions&quot;         &quot;callout&quot;            &quot;caregivers&quot;        
 ##   [4] &quot;chartevents_1&quot;      &quot;chartevents&quot;        &quot;chartevents_2&quot;     
 ##   [7] &quot;chartevents_3&quot;      &quot;chartevents_4&quot;      &quot;chartevents_5&quot;     
@@ -524,8 +533,245 @@ dbExecute(con, paste(&quot;SET search_path TO &quot;, schema, sep=&quot; &quot;)
 ## [223] &quot;d_icd_diagnoses&quot;    &quot;d_icd_procedures&quot;   &quot;d_items&quot;           
 ## [226] &quot;d_labitems&quot;         &quot;icustays&quot;           &quot;inputevents_cv&quot;    
 ## [229] &quot;prescriptions&quot;      &quot;procedureevents_mv&quot; &quot;procedures_icd&quot;    
-## [232] &quot;services&quot;           &quot;transfers&quot;          &quot;dbplyr_201&quot;        
-## [235] &quot;dbplyr_287&quot;</code></pre>
+## [232] &quot;services&quot;           &quot;transfers&quot;          &quot;dbplyr_345&quot;        
+## [235] &quot;dbplyr_362&quot;         &quot;dbplyr_1685&quot;        &quot;dbplyr_415&quot;        
+## [238] &quot;dbplyr_1294&quot;        &quot;dbplyr_1463&quot;        &quot;dbplyr_769&quot;        
+## [241] &quot;dbplyr_1499&quot;        &quot;dbplyr_003&quot;         &quot;dbplyr_312&quot;        
+## [244] &quot;dbplyr_511&quot;         &quot;icd&quot;                &quot;dbplyr_336&quot;        
+## [247] &quot;dbplyr_347&quot;         &quot;dbplyr_073&quot;         &quot;dbplyr_721&quot;        
+## [250] &quot;dbplyr_061&quot;         &quot;dbplyr_756&quot;         &quot;dbplyr_800&quot;        
+## [253] &quot;dbplyr_969&quot;         &quot;dbplyr_1004&quot;        &quot;dbplyr_1055&quot;       
+## [256] &quot;dbplyr_1106&quot;        &quot;dbplyr_1124&quot;        &quot;dbplyr_686&quot;        
+## [259] &quot;dbplyr_010&quot;         &quot;dbplyr_231&quot;         &quot;dbplyr_469&quot;        
+## [262] &quot;dbplyr_1159&quot;        &quot;dbplyr_1195&quot;        &quot;dbplyr_100&quot;        
+## [265] &quot;dbplyr_274&quot;</code></pre>
+<p>The table <code>d_icd_diagnoses</code> stores all types of diagnosis and corresponding codes, from which the influenza-related diagnosis are extracted.</p>
+<pre class="r"><code># Connect to the admissions table
+Admissions &lt;- tbl(con, &quot;admissions&quot;)
+Admissions %&gt;% print(width = Inf)</code></pre>
+<pre><code>## # Source:   table&lt;admissions&gt; [?? x 19]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    row_id subject_id hadm_id admittime           dischtime          
+##     &lt;int&gt;      &lt;int&gt;   &lt;int&gt; &lt;dttm&gt;              &lt;dttm&gt;             
+##  1     21         22  165315 2196-04-09 12:26:00 2196-04-10 15:54:00
+##  2     22         23  152223 2153-09-03 07:15:00 2153-09-08 19:10:00
+##  3     23         23  124321 2157-10-18 19:34:00 2157-10-25 14:00:00
+##  4     24         24  161859 2139-06-06 16:14:00 2139-06-09 12:48:00
+##  5     25         25  129635 2160-11-02 02:06:00 2160-11-05 14:55:00
+##  6     26         26  197661 2126-05-06 15:16:00 2126-05-13 15:00:00
+##  7     27         27  134931 2191-11-30 22:16:00 2191-12-03 14:45:00
+##  8     28         28  162569 2177-09-01 07:15:00 2177-09-06 16:00:00
+##  9     29         30  104557 2172-10-14 14:17:00 2172-10-19 14:37:00
+## 10     30         31  128652 2108-08-22 23:27:00 2108-08-30 15:00:00
+##    deathtime           admission_type admission_location       
+##    &lt;dttm&gt;              &lt;chr&gt;          &lt;chr&gt;                    
+##  1 NA                  EMERGENCY      EMERGENCY ROOM ADMIT     
+##  2 NA                  ELECTIVE       PHYS REFERRAL/NORMAL DELI
+##  3 NA                  EMERGENCY      TRANSFER FROM HOSP/EXTRAM
+##  4 NA                  EMERGENCY      TRANSFER FROM HOSP/EXTRAM
+##  5 NA                  EMERGENCY      EMERGENCY ROOM ADMIT     
+##  6 NA                  EMERGENCY      TRANSFER FROM HOSP/EXTRAM
+##  7 NA                  NEWBORN        PHYS REFERRAL/NORMAL DELI
+##  8 NA                  ELECTIVE       PHYS REFERRAL/NORMAL DELI
+##  9 NA                  URGENT         TRANSFER FROM HOSP/EXTRAM
+## 10 2108-08-30 15:00:00 EMERGENCY      TRANSFER FROM HOSP/EXTRAM
+##    discharge_location        insurance language religion          marital_status
+##    &lt;chr&gt;                     &lt;chr&gt;     &lt;chr&gt;    &lt;chr&gt;             &lt;chr&gt;         
+##  1 DISC-TRAN CANCER/CHLDRN H Private   &lt;NA&gt;     UNOBTAINABLE      MARRIED       
+##  2 HOME HEALTH CARE          Medicare  &lt;NA&gt;     CATHOLIC          MARRIED       
+##  3 HOME HEALTH CARE          Medicare  ENGL     CATHOLIC          MARRIED       
+##  4 HOME                      Private   &lt;NA&gt;     PROTESTANT QUAKER SINGLE        
+##  5 HOME                      Private   &lt;NA&gt;     UNOBTAINABLE      MARRIED       
+##  6 HOME                      Medicare  &lt;NA&gt;     CATHOLIC          SINGLE        
+##  7 HOME                      Private   &lt;NA&gt;     CATHOLIC          &lt;NA&gt;          
+##  8 HOME HEALTH CARE          Medicare  &lt;NA&gt;     CATHOLIC          MARRIED       
+##  9 HOME HEALTH CARE          Medicare  &lt;NA&gt;     CATHOLIC          MARRIED       
+## 10 DEAD/EXPIRED              Medicare  &lt;NA&gt;     CATHOLIC          MARRIED       
+##    ethnicity             edregtime           edouttime          
+##    &lt;chr&gt;                 &lt;dttm&gt;              &lt;dttm&gt;             
+##  1 WHITE                 2196-04-09 10:06:00 2196-04-09 13:24:00
+##  2 WHITE                 NA                  NA                 
+##  3 WHITE                 NA                  NA                 
+##  4 WHITE                 NA                  NA                 
+##  5 WHITE                 2160-11-02 01:01:00 2160-11-02 04:27:00
+##  6 UNKNOWN/NOT SPECIFIED NA                  NA                 
+##  7 WHITE                 NA                  NA                 
+##  8 WHITE                 NA                  NA                 
+##  9 UNKNOWN/NOT SPECIFIED NA                  NA                 
+## 10 WHITE                 NA                  NA                 
+##    diagnosis                                                  
+##    &lt;chr&gt;                                                      
+##  1 &quot;BENZODIAZEPINE OVERDOSE&quot;                                  
+##  2 &quot;CORONARY ARTERY DISEASE\\CORONARY ARTERY BYPASS GRAFT/SDA&quot;
+##  3 &quot;BRAIN MASS&quot;                                               
+##  4 &quot;INTERIOR MYOCARDIAL INFARCTION&quot;                           
+##  5 &quot;ACUTE CORONARY SYNDROME&quot;                                  
+##  6 &quot;V-TACH&quot;                                                   
+##  7 &quot;NEWBORN&quot;                                                  
+##  8 &quot;CORONARY ARTERY DISEASE\\CORONARY ARTERY BYPASS GRAFT/SDA&quot;
+##  9 &quot;UNSTABLE ANGINA\\CATH&quot;                                    
+## 10 &quot;STATUS EPILEPTICUS&quot;                                       
+##    hospital_expire_flag has_chartevents_data
+##                   &lt;int&gt;                &lt;int&gt;
+##  1                    0                    1
+##  2                    0                    1
+##  3                    0                    1
+##  4                    0                    1
+##  5                    0                    1
+##  6                    0                    1
+##  7                    0                    1
+##  8                    0                    1
+##  9                    0                    1
+## 10                    1                    1
+## # … with more rows</code></pre>
+<pre class="r"><code># Pneu &lt;- Admission %&gt;% filter(str_detect(tolower(DIAGNOSIS), &quot;PNEUMONIA&quot;))
+
+# Find all diagnoses code for influenza
+tbl(con, &quot;d_icd_diagnoses&quot;) %&gt;% 
+  filter(str_detect(long_title, &quot;influenza&quot;)) %&gt;% print(width = Inf) -&gt;
+  flu_codes</code></pre>
+<pre><code>## # Source:   lazy query [?? x 4]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    row_id icd9_code short_title             
+##     &lt;int&gt; &lt;chr&gt;     &lt;chr&gt;                   
+##  1    502 0415      H. influenzae infect NOS
+##  2    654 03841     H. influenae septicemia 
+##  3   5496 4802      Parinfluenza viral pneum
+##  4   5503 4822      H.influenzae pneumonia  
+##  5   5532 48801     Flu dt iden avian w pneu
+##  6   5533 48802     Flu dt avian w oth resp 
+##  7   5534 48809     Flu dt avian manfest NEC
+##  8   5535 48811     Flu dt 2009 H1N1 w pneu 
+##  9   5536 48812     Flu-2009 H1N1 w oth resp
+## 10   5537 48819     Flu-2009 H1N1 w oth man 
+##    long_title                                                                   
+##    &lt;chr&gt;                                                                        
+##  1 Hemophilus influenzae [H. influenzae] infection in conditions classified els…
+##  2 Septicemia due to hemophilus influenzae [H. influenzae]                      
+##  3 Pneumonia due to parainfluenza virus                                         
+##  4 Pneumonia due to Hemophilus influenzae [H. influenzae]                       
+##  5 Influenza due to identified avian influenza virus with pneumonia             
+##  6 Influenza due to identified avian influenza virus with other respiratory man…
+##  7 Influenza due to identified avian influenza virus with other manifestations  
+##  8 Influenza due to identified 2009 H1N1 influenza virus with pneumonia         
+##  9 Influenza due to identified 2009 H1N1 influenza virus with other respiratory…
+## 10 Influenza due to identified 2009 H1N1 influenza virus with other manifestati…
+## # … with more rows</code></pre>
+<p><code>diagnoses_icd</code> table stores the diagnosis of each admission. We use semi_join() to keep the rows in <code>diagnoses_icd</code> that match the codes related to influenza:</p>
+<pre class="r"><code># get all the admission because of flue via semi_join
+tbl(con, &quot;diagnoses_icd&quot;) %&gt;%
+  semi_join(flu_codes, by = &quot;icd9_code&quot;) %&gt;%
+  print() -&gt; flu_adm</code></pre>
+<pre><code>## # Source:   lazy query [?? x 5]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    row_id subject_id hadm_id seq_num icd9_code
+##     &lt;int&gt;      &lt;int&gt;   &lt;int&gt;   &lt;int&gt; &lt;chr&gt;    
+##  1  31887       2830  193970      11 0415     
+##  2  33158       2974  159182       4 0415     
+##  3  21630       1948  179684       4 0415     
+##  4  59734       5340  143777       5 0415     
+##  5 104068       9286  139128       9 0415     
+##  6 117149      10453  131615       7 0415     
+##  7 210254      18901  129544      10 0415     
+##  8 261013      23417  102513       8 0415     
+##  9 275799      24708  197576      17 0415     
+## 10 326148      28716  150867      13 0415     
+## # … with more rows</code></pre>
+<p>According to the documentation for the <code>patients</code> table, patients can have different diagnosis, and thus influenza may not be listed as the principal diagnosis. In order to focus on patients for whom influenza was central to their hospitalization, we will include records with influenza in any of the first five diagnosis positions according to the <code>seq_num</code> field. To avoid duplicate admissions, only the first influenza diagnosis for each admission is used in the analysis. At the end, a logical variable indicating the influenza is the principal diagonosis or not (the influenza is regarded as the principal diagnosis only if records have <code>seq_num</code> equal to one).</p>
+<pre class="r"><code># Use filter to only include records with flu in top five diagnosis positions
+flu_adm %&gt;%
+  filter(seq_num &lt;= 5) %&gt;%
+  group_by(subject_id, hadm_id) %&gt;%
+  # top_n(1, wt = seq_num) %&gt;% #  not working. bug? use following as workaround
+  filter(min_rank(seq_num) &lt;= 1) %&gt;%
+  ungroup() %&gt;%
+  select(subject_id, hadm_id, icd9_code, seq_num) %&gt;%
+  # check if the flu is the principal diagnosis
+  mutate(principal_dx = (seq_num == 1)) %&gt;%
+  select(-seq_num) %&gt;%
+  print() -&gt; flu_adm</code></pre>
+<pre><code>## Warning: `lang_name()` is deprecated as of rlang 0.2.0.
+## Please use `call_name()` instead.
+## This warning is displayed once per session.</code></pre>
+<pre><code>## Warning: `lang()` is deprecated as of rlang 0.2.0.
+## Please use `call2()` instead.
+## This warning is displayed once per session.</code></pre>
+<pre><code>## # Source:   lazy query [?? x 4]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    subject_id hadm_id icd9_code principal_dx
+##         &lt;int&gt;   &lt;int&gt; &lt;chr&gt;     &lt;lgl&gt;       
+##  1        236  191151 4822      TRUE        
+##  2       1338  195037 4822      FALSE       
+##  3       1948  179684 0415      FALSE       
+##  4       2092  154019 4822      FALSE       
+##  5       2807  151250 4822      FALSE       
+##  6       2974  159182 0415      FALSE       
+##  7       3181  122963 4822      FALSE       
+##  8       4699  159743 4822      FALSE       
+##  9       5340  143777 0415      FALSE       
+## 10       5573  177000 4822      FALSE       
+## # … with more rows</code></pre>
+<p><code>inner_join</code> the table of admission <code>admissions</code> with the table of influenza-caused admission to pull the admitting and discharge time. Here the <code>hospital_expire_flag</code> is a logical variable indicating whether the patient died (1) in the hospital or not (0).</p>
+<p>Also join the <code>patients</code> table to get more detailed demographic information of the patients admitted into hospital. Here we want information about gender, date of birth, date of death and expire_flag.</p>
+<pre class="r"><code>select(tbl(con, &quot;admissions&quot;), 
+       subject_id, hadm_id, admittime, dischtime, hospital_expire_flag)%&gt;%
+  inner_join(flu_adm, by = c(&quot;subject_id&quot;, &quot;hadm_id&quot;)) %&gt;%
+  left_join(
+    select(tbl(con, &quot;patients&quot;), -row_id, -dod_hosp, -dod_ssn),
+    by = &quot;subject_id&quot;) %&gt;%
+  print() -&gt; flu_admissions</code></pre>
+<pre><code>## # Source:   lazy query [?? x 11]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    subject_id hadm_id admittime           dischtime           hospital_expire…
+##         &lt;int&gt;   &lt;int&gt; &lt;dttm&gt;              &lt;dttm&gt;                         &lt;int&gt;
+##  1        236  191151 2139-02-18 14:26:00 2139-04-08 15:30:00                0
+##  2       1338  195037 2108-12-07 11:34:00 2108-12-27 14:30:00                0
+##  3       1948  179684 2173-03-12 22:21:00 2173-03-18 23:09:00                0
+##  4       2092  154019 2180-12-16 12:40:00 2180-12-29 09:00:00                0
+##  5       2807  151250 2175-08-15 07:15:00 2175-09-06 16:13:00                0
+##  6       2974  159182 2165-11-23 05:40:00 2165-12-19 13:15:00                0
+##  7       3181  122963 2120-07-19 07:15:00 2120-07-31 14:27:00                0
+##  8       4699  159743 2148-04-03 12:41:00 2148-04-12 19:15:00                0
+##  9       5340  143777 2106-12-29 04:27:00 2107-01-03 12:28:00                0
+## 10       5573  177000 2139-04-05 19:39:00 2139-04-18 15:30:00                0
+## # … with more rows, and 6 more variables: icd9_code &lt;chr&gt;, principal_dx &lt;lgl&gt;,
+## #   gender &lt;chr&gt;, dob &lt;dttm&gt;, dod &lt;dttm&gt;, expire_flag &lt;int&gt;</code></pre>
+<p>Calculate the age for all patients in the table. According to the documentation for the patients table, the patients of 90 years and older had their ages artficially inflated, and thus removed from the table.</p>
+<pre class="r"><code>flu_admissions %&gt;%
+  mutate(tt_death = date_part(&quot;day&quot;, dod) - date_part(&quot;day&quot;, dischtime)) %&gt;%
+  mutate(mortality = tt_death &lt;= 30) %&gt;%
+  mutate(age = date_part(&quot;year&quot;, admittime) - date_part(&quot;year&quot;, dob)) %&gt;%
+  filter(age &lt; 90) %&gt;%
+  mutate(age = age - ifelse(
+    date_part(&quot;month&quot;, admittime) &lt; date_part(&quot;month&quot;, dob) |
+      (
+        date_part(&quot;month&quot;, admittime) == date_part(&quot;month&quot;, dob) &amp;
+          date_part(&quot;day&quot;, admittime) &lt; date_part(&quot;day&quot;, dob)
+      ),
+    1,
+    0
+  )) %&gt;%
+  select(-admittime, -dischtime, -dob, -dod, -tt_death) %&gt;%
+  select(subject_id, hadm_id, age, mortality, everything()) %&gt;%
+  print() -&gt; study_admissions</code></pre>
+<pre><code>## # Source:   lazy query [?? x 9]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    subject_id hadm_id   age mortality hospital_expire… icd9_code principal_dx
+##         &lt;int&gt;   &lt;int&gt; &lt;dbl&gt; &lt;lgl&gt;                &lt;int&gt; &lt;chr&gt;     &lt;lgl&gt;       
+##  1        236  191151    57 TRUE                     0 4822      TRUE        
+##  2       1338  195037    77 NA                       0 4822      FALSE       
+##  3       1948  179684    32 NA                       0 0415      FALSE       
+##  4       2092  154019    46 NA                       0 4822      FALSE       
+##  5       2807  151250    66 NA                       0 4822      FALSE       
+##  6       2974  159182    50 NA                       0 0415      FALSE       
+##  7       3181  122963    79 TRUE                     0 4822      FALSE       
+##  8       4699  159743    36 NA                       0 4822      FALSE       
+##  9       5340  143777    45 NA                       0 0415      FALSE       
+## 10       5573  177000    72 TRUE                     0 4822      FALSE       
+## # … with more rows, and 2 more variables: gender &lt;chr&gt;, expire_flag &lt;int&gt;</code></pre>
+</div>
+<div id="examples" class="section level2">
+<h2>Examples:</h2>
 <p>An example SQL query:</p>
 <pre class="r"><code>sql_query &lt;- &quot;SELECT i.subject_id, i.hadm_id, i.los
               FROM icustays i;&quot;
@@ -587,7 +833,7 @@ patients %&gt;% print(width = Inf)</code></pre>
 <pre><code>## List of 2
 ##  $ src:List of 2
 ##   ..$ con  :Formal class 'PostgreSQLConnection' [package &quot;RPostgreSQL&quot;] with 1 slot
-##   .. .. ..@ Id: int [1:2] 728 0
+##   .. .. ..@ Id: int [1:2] 3487 0
 ##   ..$ disco: NULL
 ##   ..- attr(*, &quot;class&quot;)= chr [1:4] &quot;src_PostgreSQLConnection&quot; &quot;src_dbi&quot; &quot;src_sql&quot; &quot;src&quot;
 ##  $ ops:List of 2
@@ -639,6 +885,47 @@ patients %&gt;% print(width = Inf)</code></pre>
 ##  9      12138  131429
 ## 10      10616  122738
 ## # … with more rows</code></pre>
+<pre class="r"><code>tbl(con, &quot;transfers&quot;) %&gt;%
+  print(width = Inf)</code></pre>
+<pre><code>## # Source:   table&lt;transfers&gt; [?? x 13]
+## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
+##    row_id subject_id hadm_id icustay_id dbsource   eventtype prev_careunit
+##     &lt;int&gt;      &lt;int&gt;   &lt;int&gt;      &lt;int&gt; &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;        
+##  1    657        111  192123     254245 carevue    transfer  CCU          
+##  2    658        111  192123         NA carevue    transfer  MICU         
+##  3    659        111  192123         NA carevue    discharge &lt;NA&gt;         
+##  4    660        111  155897     249202 metavision admit     &lt;NA&gt;         
+##  5    661        111  155897         NA metavision transfer  MICU         
+##  6    662        111  155897     249202 metavision transfer  &lt;NA&gt;         
+##  7    663        111  155897         NA metavision transfer  MICU         
+##  8    664        111  155897     249202 metavision transfer  &lt;NA&gt;         
+##  9    665        111  155897         NA metavision discharge MICU         
+## 10    666        112  174105     289222 carevue    admit     &lt;NA&gt;         
+##    curr_careunit prev_wardid curr_wardid intime              outtime            
+##    &lt;chr&gt;               &lt;int&gt;       &lt;int&gt; &lt;dttm&gt;              &lt;dttm&gt;             
+##  1 MICU                    7          23 2142-04-29 15:27:11 2142-05-04 20:38:33
+##  2 &lt;NA&gt;                   23          45 2142-05-04 20:38:33 2142-05-05 11:46:32
+##  3 &lt;NA&gt;                   45          NA 2142-05-05 11:46:32 NA                 
+##  4 MICU                   NA          52 2144-07-01 04:13:59 2144-07-01 05:19:39
+##  5 &lt;NA&gt;                   52          32 2144-07-01 05:19:39 2144-07-01 06:28:29
+##  6 MICU                   32          52 2144-07-01 06:28:29 2144-07-01 08:07:16
+##  7 &lt;NA&gt;                   52          32 2144-07-01 08:07:16 2144-07-01 08:13:51
+##  8 MICU                   32          23 2144-07-01 08:13:51 2144-07-01 17:56:31
+##  9 &lt;NA&gt;                   23          NA 2144-07-01 17:56:31 NA                 
+## 10 MICU                   NA          12 2194-06-13 18:41:27 2194-06-14 14:51:17
+##       los
+##     &lt;dbl&gt;
+##  1 125.  
+##  2  15.1 
+##  3  NA   
+##  4   1.09
+##  5   1.15
+##  6   1.65
+##  7   0.11
+##  8   9.71
+##  9  NA   
+## 10  20.2 
+## # … with more rows</code></pre>
 <p>Now we want to restrict to heart attack patients. To find all possible ICD-9 codes related to heart attack, we search for string <code>myocardial infarction</code> in the <code>long_title</code> of table <code>d_icd_diagnoses</code>:</p>
 <pre class="r"><code>tbl(con, &quot;d_icd_diagnoses&quot;) %&gt;%
   filter(str_detect(tolower(long_title), &quot;myocardial infarction&quot;)) %&gt;%
@@ -686,12 +973,6 @@ patients %&gt;% print(width = Inf)</code></pre>
   ungroup() %&gt;%
   select(subject_id, hadm_id, icd9_code, seq_num) %&gt;%
   print() -&gt; mi_admissions</code></pre>
-<pre><code>## Warning: `lang_name()` is deprecated as of rlang 0.2.0.
-## Please use `call_name()` instead.
-## This warning is displayed once per session.</code></pre>
-<pre><code>## Warning: `lang()` is deprecated as of rlang 0.2.0.
-## Please use `call2()` instead.
-## This warning is displayed once per session.</code></pre>
 <pre><code>## # Source:   lazy query [?? x 4]
 ## # Database: postgres 11.0.7 [postgres@/var/run/postgresql:5432/mimic]
 ##    subject_id hadm_id icd9_code seq_num

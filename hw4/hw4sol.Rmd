@@ -37,9 +37,14 @@ In this assignment, you are to write a report analyzing the electronic health re
 
 - The GitHub repository <https://github.com/MIT-LCP/mimic-code> contains some code examples for working with the MIMIC-III data. Following sample code derives from <https://github.com/MIT-LCP/mimic-code/blob/master/tutorials/dplyr-frontend/intro.md>. 
 
-# Examplary code
 
-## Connect to PostgresSQL database
+*Report starts here*
+
+# Title: Mortality Rate of Influenza Patients Admitted to the Hospital
+<!-- or maybe influenza? -->
+## 1. Introduction
+
+## 2. Data Preparation
 
 Load database libraries and the tidyverse frontend:
 ```{r}
@@ -49,7 +54,7 @@ library(tidyverse)
 library(lubridate)
 ```
 
-Credentials for using PostgreSQL database. We are going to use username `postgres` with password `postgres` to access the `mimic` database in the schemee `mimiciii`. 
+Connect to PostgresSQL datanase: Credentials for using PostgreSQL database. We are going to use username `postgres` with password `postgres` to access the `mimic` database in the schemee `mimiciii`. 
 ```{r}
 # Load configuration settings
 dbdriver <- 'PostgreSQL'
@@ -73,14 +78,9 @@ con
 # List tables in the `mimic` database:
 dbListTables(con)
 ```
-*Report starts here*
-# Title: 30-Day Mortality Rate of Pnemonia Patients Admitted to CCU
-<!-- or maybe influenza? -->
-## 1. Introduction
 
-## 2. Data Preparation
 
-The table `d_icd_diagnoses` stores all types of diagnosis and corresponding codes, and thus the influenza-related diagnosis are extracted.
+The table `d_icd_diagnoses` stores all types of diagnosis and corresponding codes, from which the influenza-related diagnosis are extracted.
 ```{r}
 # Connect to the admissions table
 Admissions <- tbl(con, "admissions")
@@ -101,7 +101,7 @@ tbl(con, "diagnoses_icd") %>%
   print() -> flu_adm
 ```
 
-According to the documentation for the `patients` table, patients can have different diagnosis, and thus influenza may not be listed as the principal diagnosis. In order to focus on patients for whom influenza was central to their hospitalization, we will include records with influenza in any of the first five diagnosis positions, according to the `seq_num` field. To avoid duplicate admissions, only the first influenza diagnosis for each admission is used in the analysis.
+According to the documentation for the `patients` table, patients can have different diagnosis, and thus influenza may not be listed as the principal diagnosis. In order to focus on patients for whom influenza was central to their hospitalization, we will include records with influenza in any of the first five diagnosis positions according to the `seq_num` field. To avoid duplicate admissions, only the first influenza diagnosis for each admission is used in the analysis. At the end, a logical variable indicating the influenza is the principal diagonosis or not (the influenza is regarded as the principal diagnosis only if records have `seq_num` equal to one).
 ```{r}
 # Use filter to only include records with flu in top five diagnosis positions
 flu_adm %>%
@@ -117,6 +117,40 @@ flu_adm %>%
   print() -> flu_adm
 ```
 
+`inner_join` the table of admission `admissions` with the table of influenza-caused admission to pull the admitting and discharge time. Here the `hospital_expire_flag` is a logical variable indicating whether the patient died (1) in the hospital or not (0). 
+
+Also join the `patients` table to get more detailed demographic information of the patients admitted into hospital. Here we want information about gender, date of birth, date of death and expire_flag.
+```{r}
+select(tbl(con, "admissions"), 
+       subject_id, hadm_id, admittime, dischtime, hospital_expire_flag)%>%
+  inner_join(flu_adm, by = c("subject_id", "hadm_id")) %>%
+  left_join(
+    select(tbl(con, "patients"), -row_id, -dod_hosp, -dod_ssn),
+    by = "subject_id") %>%
+  print() -> flu_admissions
+```
+
+Calculate the age for all patients in the table. According to the documentation for the patients table, the patients of 90 years and older had their ages artficially inflated, and thus removed from the table.
+
+```{r}
+flu_admissions %>%
+  mutate(tt_death = date_part("day", dod) - date_part("day", dischtime)) %>%
+  mutate(mortality = tt_death <= 30) %>%
+  mutate(age = date_part("year", admittime) - date_part("year", dob)) %>%
+  filter(age < 90) %>%
+  mutate(age = age - ifelse(
+    date_part("month", admittime) < date_part("month", dob) |
+      (
+        date_part("month", admittime) == date_part("month", dob) &
+          date_part("day", admittime) < date_part("day", dob)
+      ),
+    1,
+    0
+  )) %>%
+  select(-admittime, -dischtime, -dob, -dod, -tt_death) %>%
+  select(subject_id, hadm_id, age, mortality, everything()) %>%
+  print() -> flu_admissions
+```
 
 ## Examples:
 
