@@ -87,8 +87,10 @@ Admissions <- tbl(con, "admissions")
 Admissions %>% print(width = Inf)
 # Pneu <- Admission %>% filter(str_detect(tolower(DIAGNOSIS), "PNEUMONIA"))
 
+tbl(con, "d_icd_diagnoses")%>% summarize(n())
+
 # Find all diagnoses code for influenza
-tbl(con, "d_icd_diagnoses") %>% 
+tbl(con, "d_icd_diagnoses") %>%
   filter(str_detect(long_title, "influenza")) %>% print(width = Inf) ->
   flu_codes
 ```
@@ -117,25 +119,37 @@ flu_adm %>%
   print() -> flu_adm
 ```
 
-`inner_join` the table of admission `admissions` with the table of influenza-caused admission to pull the admitting and discharge time. Here the `hospital_expire_flag` is a logical variable indicating whether the patient died (1) in the hospital or not (0). 
+`inner_join` the table of admission `admissions` with the table of influenza-caused admission to pull the admitting and discharge time and other necessary information. Also join the `patients` table to get more detailed demographic information of the patients admitted into hospital. 
 
-Also join the `patients` table to get more detailed demographic information of the patients admitted into hospital. Here we want information about gender, date of birth, date of death and expire_flag.
+Here the `hospital_expire_flag` and `expire_flag` are logical variables indicating whether the patient died (1) or not (0). Create more intelligible variable names for them.
+
 ```{r}
 select(tbl(con, "admissions"), 
-       subject_id, hadm_id, admittime, dischtime, hospital_expire_flag)%>%
+       subject_id, hadm_id, admittime, dischtime, hospital_expire_flag, ethnicity)%>%
   inner_join(flu_adm, by = c("subject_id", "hadm_id")) %>%
   left_join(
     select(tbl(con, "patients"), -row_id, -dod_hosp, -dod_ssn),
     by = "subject_id") %>%
+  mutate(mortality_in_hospital = hospital_expire_flag==1,
+         mortality_general = expire_flag==1) %>%
+  select(-hospital_expire_flag, -expire_flag) %>%
   print() -> flu_admissions
 ```
 
-Calculate the age for all patients in the table. According to the documentation for the patients table, the patients of 90 years and older had their ages artficially inflated, and thus removed from the table.
+Calculate the age for all patients in the table. According to the documentation for the patients table, the patients of 90 years and older had their ages artficially inflated, and thus removed from the table. Some important variables are moved to the front.
+
+*Note* Many mortality indicators are missing, due to neither the hospital database nor the social security database having a record of these patients’ deaths, i.e., they patients are still alive. This is also verified by the aforementioned morality variables, and thus the NA values are converted to FALSE values. The code used for verification is commented out.
 
 ```{r}
+## Code for verification
+# flu_admissions %>%
+#   mutate(tt_death = date_part("day", dod) - date_part("day", dischtime))  %>% 
+#   mutate(verification = !is.na(tt_death)) ->c
+# (all(c$verification == c$mortality_general))
+
 flu_admissions %>%
   mutate(tt_death = date_part("day", dod) - date_part("day", dischtime)) %>%
-  mutate(mortality = tt_death <= 30) %>%
+  mutate(mortality_30 = ifelse(is.na(tt_death)||tt_death>30, F, T) ) %>%
   mutate(age = date_part("year", admittime) - date_part("year", dob)) %>%
   filter(age < 90) %>%
   mutate(age = age - ifelse(
@@ -148,235 +162,14 @@ flu_admissions %>%
     0
   )) %>%
   select(-admittime, -dischtime, -dob, -dod, -tt_death) %>%
-  select(subject_id, hadm_id, age, mortality, everything()) %>%
+  select(subject_id, hadm_id, age, mortality_general,
+         mortality_in_hospital, mortality_30, everything()) %>%
   print() -> flu_admissions
 ```
 
-## Examples:
+CONSORT Flow Diagrams are generated for the flow of data preparation.
 
-An example SQL query:
 ```{r}
-sql_query <- "SELECT i.subject_id, i.hadm_id, i.los
-              FROM icustays i;"
-(data <- dbGetQuery(con, sql_query)) %>% as_tibble()
-
-#This document shows how RMarkdown can be used to create a reproducible analysis using MIMIC-III (version 1.4). Let's calculate the median length of stay in the ICU and then include this value in our document.
-(avg_los <- median(data$los, na.rm=TRUE))
-(rounded_avg_los <- round(avg_los, digits = 2))
-```
-
-## Connect to a table in database
-
-To connect to the `patients` table in the database:
-```{r}
-patients <- tbl(con, "patients")
-patients %>% print(width = Inf)
-```
-We can see this connection is lazy (does not load the whole table into computer memory)
-```{r}
-str(patients)
-```
-To load the entire table into memory we may use
-```{r}
-collect(patients)
-```
-But keep in mind that the point of using a database software is that the data tables are potentially large and we prefer to use database to do on disk computations as much as possible. So in this assignment we will avoid loading whole tables into memory as much as we can. 
-
-## Query and subsetting
-
-In this section, we demo how to create a cohort of patients who were directly admitted into CCU and were diagnosed with heart attack.
-
-First we create a (query) table of patients who were directly admitted into CCU.
-```{r}
-tbl(con, "transfers") %>%
-  select(subject_id, hadm_id, prev_careunit, curr_careunit) %>%
-  filter(is.na(prev_careunit) & curr_careunit == "CCU") %>%
-  select(subject_id, hadm_id) %>%
-  distinct() %>%
-  print() -> ccu_admissions
-
-tbl(con, "transfers") %>%
-  print(width = Inf)
-```
-
-Now we want to restrict to heart attack patients. To find all possible ICD-9 codes related to heart attack, we search for string `myocardial infarction` in the `long_title` of table `d_icd_diagnoses`:
-```{r}
-tbl(con, "d_icd_diagnoses") %>%
-  filter(str_detect(tolower(long_title), "myocardial infarction")) %>%
-  print() -> mi_codes
-```
-
-`diagnoses_icd` table stores the diagnosis of each admission. We use `semi_join()` to keep the rows in `diagnoses_icd` that match the ICD-9 codes related to heart attack:
-```{r}
-tbl(con, "diagnoses_icd") %>%
-  semi_join(mi_codes, by = "icd9_code") %>%
-  print() -> mi_admissions
-```
-
-MI may not be listed as the principal diagnosis; as explained in [the documentation for the `patients` table](https://mimic.physionet.org/mimictables/diagnoses_icd/), the `seq_num` field is a priority ranking for the diagnoses generated at the end of stay. In order to focus on patients for whom MI was central to their hospitalization, we will include records with MI in any of the first five diagnosis positions, according to the `seq_num` field. To avoid duplicate admissions, we use `group_by()` and `top_n()` to limit the query to the first MI diagnosis for each admission.
-```{r}
-mi_admissions %>%
-  filter(seq_num <= 5) %>%
-  group_by(subject_id, hadm_id) %>%
-  # top_n(1, wt = seq_num) %>% #  not working. bug? use following as workaround
-  filter(min_rank(seq_num) <= 1) %>%
-  ungroup() %>%
-  select(subject_id, hadm_id, icd9_code, seq_num) %>%
-  print() -> mi_admissions
-```
-Now we `inner_join` the table of admissions to CCU and the table of admissions that include MI diagnosis.
-```{r}
-ccu_admissions %>%
-  inner_join(mi_admissions, by = c("subject_id", "hadm_id")) %>%
-  print() -> study_admissions
-```
-
-## Transform and augment query tables
-
-Now we create a logical variable indicating the MI is the principal diagonosis or not (according to `seq_num`).
-```{r}
-study_admissions %>%
-  mutate(principal_dx = seq_num == 1) %>%
-  select(-seq_num) %>%
-  print() -> study_admissions
-```
-
-We want to add information about the severity of patients’ ailments. The `drgcodes` table contains, for `DRG` codes from the All Payers Registry (APR), severity and mortality indicators. We pull the drug severity information and right-join it to our query table.
-```{r}
-tbl(con, "drgcodes") %>%
-  filter(str_detect(drg_type, "APR")) %>%
-  select(subject_id, hadm_id, drg_severity) %>%
-  right_join(study_admissions, by = c("subject_id", "hadm_id")) %>%
-  mutate(drg_severity = ifelse(is.na(drg_severity), 1, drg_severity)) %>%
-  print() -> study_admissions
-```
-
-Pull the admission time `admittime`, discharge time `dischtime`, date of birth `dob`, and date of death `dod`. We are interested in the  mortaility rate 30 days after discharge. So we only keep patients who didn't die in hospital.
-```{r}
-study_admissions %>%
-  left_join(
-    select(tbl(con, "admissions"),
-           subject_id, hadm_id, admittime, dischtime, hospital_expire_flag
-    ), by = c("subject_id", "hadm_id")
-  ) %>%
-  filter(hospital_expire_flag == 0) %>% # patients who did not die in hospital
-  select(-hospital_expire_flag) %>%
-  left_join(
-    select(tbl(con, "patients"), subject_id, dob, dod),
-    by = "subject_id"
-  ) %>%
-  print(width = Inf) -> study_admissions
-```
-
-To add `age` (at admission) variable into the table. [The documentation for the patients table](https://mimic.physionet.org/mimictables/patients/) explains that patients of 90 years and older had their ages artificially inflated, so we remove these patients from the analysis.
-```{r}
-study_admissions %>%
-  mutate(tt_death = date_part("day", dod) - date_part("day", dischtime)) %>%
-  mutate(mortality = tt_death <= 30) %>%
-  mutate(age = date_part("year", admittime) - date_part("year", dob)) %>%
-  filter(age < 90) %>%
-  mutate(age = age - ifelse(
-    date_part("month", admittime) < date_part("month", dob) |
-      (
-        date_part("month", admittime) == date_part("month", dob) &
-          date_part("day", admittime) < date_part("day", dob)
-      ),
-    1,
-    0
-  )) %>%
-  select(-admittime, -dischtime, -dob, -dod, -tt_death) %>%
-  select(subject_id, hadm_id, age, mortality, everything()) %>%
-  print() -> study_admissions
-```
-Many mortality indicators are missing, due to neither the hospital database nor the social security database having a record of these patients’ deaths. We could convert these to `FALSE` values, but it may be helpful to retain in the analytic table this information on whether deaths were recorded at all, e.g. for validation or sensitivity testing.
-
-Finally, let's merge some demographic information (ethnicity, gender) into our study `study_admissions`.
-```{r}
-tbl(con, "admissions") %>%
-  select(subject_id, ethnicity) %>%
-  distinct() %>%
-  print() -> study_subjects
-```
-```{r}
-tbl(con, "patients") %>%
-  select(subject_id, gender) %>%
-  distinct() %>%
-  full_join(study_subjects, by = "subject_id") %>%
-  print() -> study_subjects
-```
-```{r}
-study_subjects %>%
-  semi_join(study_admissions, by = "subject_id") %>%
-  print() -> study_subjects
-```
-Let's resolves ome diversity and inconsistency in the `ethnicity` field:
-```{r}
-unknown_ethnicity <- c(
-  "OTHER",
-  "UNABLE TO OBTAIN",
-  "UNKNOWN/NOT SPECIFIED",
-  "MULTI RACE ETHNICITY",
-  "PATIENT DECLINED TO ANSWER",
-  "UNKNOWN"
-)
-
-study_subjects %>%
-  collect() %>%
-  mutate(ethnic_group = case_when(
-    str_detect(ethnicity, "^ASIAN") ~ "ASIAN",
-    str_detect(ethnicity, "^BLACK") ~ "BLACK",
-    str_detect(ethnicity, "^HISPANIC") ~ "HISPANIC",
-    str_detect(ethnicity, "^WHITE") ~ "WHITE",
-    ethnicity %in% unknown_ethnicity ~ NA_character_,
-    TRUE ~ NA_character_
-  )) %>%
-  select(subject_id, gender, ethnic_group) %>%
-  print() -> study_subjects
-```
-
-Some patients are coded as belonging to more than one ethnic group. To resolve these inconsistencies, we define a helper function to pick the modal value from a vector of values in R, which can be used by the `summarize()` function to choose one ethnic group for each patient.
-```{r}
-most <- function(x) {
-  if (all(is.na(x))) return(NA_character_)
-  y <- table(x, useNA = "no")
-  if (length(which(y == max(y))) > 1) return(NA_character_)
-  return(names(y)[which.max(y)])
-}
-
-study_subjects %>%
-  group_by(subject_id) %>%
-  summarize(ethnic_group = most(ethnic_group)) %>%
-  ungroup() %>%
-  mutate(ethnic_group = ifelse(is.na(ethnic_group), "UNKNOWN", ethnic_group)) %>%
-  print() -> subject_ethnic_groups
-```
-```{r}
-study_subjects %>%
-  select(subject_id, gender) %>%
-  left_join(subject_ethnic_groups, by = "subject_id") %>%
-  print() -> study_subjects
-```
-Now we add the demographic information `gender` and `ethnicity` into our `study_admissions` table:
-```{r}
-study_admissions %>%
-  left_join(study_subjects, by = "subject_id", copy = TRUE) %>%
-  print() -> study_admissions
-```
-
-## Close the connection to a database
-
-Close the connection:
-```{r}
-dbDisconnect(con)
-```
-
-## CONSORT Flow Diagrams
-
-CONSORT Flow Diagrams can be used to plot the flow of data selection of a patient cohort.   
-For more details, see:
-[The CONSORT Flow Diagram](http://www.consort-statement.org/consort-statement/flow-diagram). Following code shows an example. 
-
-```{r plot}
 library(shape)
 library(diagram)
 
@@ -388,39 +181,33 @@ par(mar = c(0, 0, 0, 0))
 openplotmat()
 
 # position of boxes
-# 1st column indicates x axis position between 0 and 1
-# 2nd column indicates y axis position between 0 and 1
-# automatically assigns vertical position
-num_of_boxes <- 6
+num_of_boxes <- 5
 auto_coords = coordinates(num_of_boxes)
 vert_pos = rev(auto_coords[,1])
 box_pos <- matrix(nrow = num_of_boxes, ncol = 2, data = 0)
 box_pos[1,] = c(0.20, vert_pos[1]) # 1st box
-box_pos[2,] = c(0.70, vert_pos[2]) # 2nd box
-box_pos[3,] = c(0.70, vert_pos[3]) # 3rd box
-box_pos[4,] = c(0.70, vert_pos[4]) # etc...
-box_pos[5,] = c(0.70, vert_pos[5])
-box_pos[6,] = c(0.20, vert_pos[6])
+box_pos[2,] = c(0.70, vert_pos[1]) # 2nd box
+box_pos[3,] = c(0.70, vert_pos[2]-.05)
+box_pos[4,] = c(0.20, vert_pos[3]-.1) # 3rd box
+box_pos[5,] = c(0.20, vert_pos[4]-.2) # etc...
+
 
 # content of boxes
 box_content <- matrix(nrow = num_of_boxes, ncol = 1, data = 0)
 box_content[1] = "All patients in MIMIC-III \n n = 58,976" # 1st box
-box_content[2] = "Exclude patients of age < 18 \n n = 8,180" # 2nd box
-box_content[3] = "Exclude patients with no ICU admissions \n n = 1,071" # 3rd box
-box_content[4] = "Exclude patients with diabetes \n n = 1,324" # etc...
-box_content[5] = "Exclude patients with sepsis \n n = 4,804"
-box_content[6] = "Study cohort \n n = 43,597"
+box_content[2] = "All diagnosis in MIMIC-III \n n = 14567" # 2nd box
+box_content[3] = "Filter diagnosis of influenza \n n = 183" # 3rd box
+box_content[4] = "Filter influenza patients \n n = 85" # etc...
+box_content[5] = "Detail patients' information \n n = 85"
 
 # adjust the size of boxes to fit content
-box_x <- c(0.20, 0.25, 0.25, 0.25, 0.25, 0.20)
-box_y <- c(0.07, 0.07, 0.07, 0.07, 0.07, 0.07)
-
+box_x <- c(0.20, 0.20, 0.20, 0.20, 0.20)
+box_y <- c(0.07, 0.07, 0.07, 0.07, 0.07)
 # Draw the arrows
-straightarrow(from = c(box_pos[1,1],box_pos[2,2]), to = box_pos[2,], lwd = 1)  
-straightarrow(from = c(box_pos[1,1],box_pos[3,2]), to = box_pos[3,], lwd = 1)  
-straightarrow(from = c(box_pos[1,1],box_pos[4,2]), to = box_pos[4,], lwd = 1)  
-straightarrow(from = c(box_pos[1,1],box_pos[5,2]), to = box_pos[5,], lwd = 1)  
-straightarrow(from = box_pos[1,], to = box_pos[6,], lwd = 1)
+straightarrow(from = box_pos[2,], to = box_pos[3,], lwd = 1)
+straightarrow(from = box_pos[3,], to = c(0.20, box_pos[3,2]), lwd = 1)
+straightarrow(from = box_pos[1,], to = box_pos[4,], lwd = 1)
+straightarrow(from = box_pos[4,], to = box_pos[5,], lwd = 1)
 
 # Draw the boxes
 for (i in 1:num_of_boxes) {
@@ -428,15 +215,4 @@ for (i in 1:num_of_boxes) {
            lab = box_content[i], 
            shadow.col = "grey")
   }
-```
-
-## Install PostgreSQL and `RpostgreSQL` package on CentOS
-
-This is a note to myself (Dr. Hua Zhou). The postgres in yum is an old version. We want to install the most recent postgres and then build the `RpostgreSQL` package based on it. 
-
-1. Follow instructions in <https://www.digitalocean.com/community/tutorials/how-to-install-and-use-postgresql-on-centos-7> to install PostgreSQL 11 on CentOS 7. 
-
-2. Issue following command to install `RPostgreSQL` in R:
-```{bash, eval = F}
-sudo R -e 'Sys.setenv(PG_INCDIR="/usr/pgsql-11/include/"); Sys.setenv(PG_LIBDIR="/usr/pgsql-11/lib/"); install.packages("RPostgreSQL")'
 ```
