@@ -52,6 +52,7 @@ library(DBI)
 library(RPostgreSQL)
 library(tidyverse)
 library(lubridate)
+library(scales)
 ```
 
 Connect to PostgresSQL datanase: Credentials for using PostgreSQL database. We are going to use username `postgres` with password `postgres` to access the `mimic` database in the schemee `mimiciii`. 
@@ -216,3 +217,181 @@ for (i in 1:num_of_boxes) {
            shadow.col = "grey")
   }
 ```
+
+## 3. Data Visualization
+
+Gender distribution of the influenza patients: the male patients number is more than twice as many as female ones.
+```{r}
+flu_admissions %>%  
+  # count male or female patients numbers
+  group_by(gender) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(gender)) %>%
+  ggplot(aes(x = "", y= Prop, fill= gender)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+```
+
+Age distribution of the influenza patients: Most of the patients admitted for influenza-related reasons are those older than 40 years old. Also with the increase of age, the mortality increases except for patients in 90s, the total number of which is too small.
+```{r}
+flu_admissions %>%
+  ggplot() +
+  geom_histogram(mapping = aes(x=age,y = (..count..)/sum(..count..),
+                               fill = mortality_30),
+           binwidth = 10, color = "white")+
+  scale_y_continuous(breaks = seq(0,.25,.025), labels = percent,
+                     name="Percentage")+
+  scale_x_continuous( breaks = seq(0,100,10), name = "Age")+
+  labs(fill = "30 days mortality")
+```
+
+Ethnicity: Most of the patients admitted for influenza is white, accounting for more than 70% of patients.
+```{r}
+flu_admissions %>%
+    group_by(ethnicity)  %>%
+  summarise(count=n()) %>%
+  mutate(Prop = count/sum(count))%>%
+  
+  ggplot() + 
+  geom_bar(mapping=aes(stringr::str_wrap(ethnicity,15), y = Prop),
+           stat = "identity", width=0.5)+
+  scale_y_continuous(breaks = seq(0,.7,.1),labels = percent)+
+  labs(x='Ethnicity', y='Count')+
+  coord_flip()
+```
+
+
+Morality: The general mortality plot is identical to the 30-days mortality plot, which means 39% of these patients died in 30-days after admission because of influenza-realted reason. And the in-hospital mortality is relatively low. Only 8% of these patients died in the hospital
+
+```{r}
+flu_admissions %>%
+  group_by(mortality_30) %>%
+  summarise(count = n()) %>%
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(mortality_30)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= mortality_30)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="", fill = "30 days mortality")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank()) -> p1
+
+flu_admissions %>%
+  group_by(mortality_in_hospital) %>%
+  summarise(count = n()) %>%
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(mortality_in_hospital)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= mortality_in_hospital)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="", fill = "Mortality in hospital")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank()) -> p2
+
+flu_admissions %>%
+  group_by(mortality_general) %>%
+  summarise(count = n()) %>%
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(mortality_general)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= mortality_general)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="", fill = "General mortality")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank()) -> p3
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, nrow = 3)
+```
+
+## 4. Analytics
+
+a. *Logistic Regression* Here we try to predict the 30-day mortality by using the gender and age of the patients. The `ethnicity` and `principal_dx` are not considered because most of the patients are white and the influenza is not the number#1 diagnosis, which makes both variable not statistically significant. The 30-days mortality can be calculated as:
+
+`30-days mortality = -6.49018 + 0.08287 &times; age + 1.28955 &times; the patient is male`
+
+
+```{r}
+flu_admissions$gender <- factor(flu_admissions$gender)
+flu_admissions$principal_dx <- factor(flu_admissions$principal_dx)
+flu_admissions$mortality_general <- factor(flu_admissions$mortality_general )
+
+logitA <- glm(mortality_general ~ gender + age, 
+              data = flu_admissions, family = "binomial")
+
+summary(logitA)
+```
+
+b. *neural network* Divide the table into training table (60) and test table (25).
+
+```{r}
+library(keras)
+install_keras()
+# divide the table
+o_train <- sample(seq(1,85,1),60)
+flu_admissions_t <- collect(flu_admissions)
+t_train <- flu_admissions_t[o_train,]
+t_test <- flu_admissions_t[-o_train,]
+
+
+model <- keras_model_sequential() 
+```
+
