@@ -44,6 +44,8 @@ In this assignment, you are to write a report analyzing the electronic health re
 <!-- or maybe influenza? -->
 ## 1. Introduction
 
+The COVID-19 has made headlines in recent weeks and been regarded as an epidemic hitting countries around the world. To March 22, 2020, there has been more than 2 millions people diagnosed as COVID-19 and more than 24,000 death because of this virus. Many people compared this virus with flu, which has already caused an estimated 19 million illnesses in the U.S. alone from CDC estimation. This project aims to investigate influenza patients information and maybe create models with these data to predict future 30-days mortality of influenza patients.
+
 ## 2. Data Preparation
 
 Load database libraries and the tidyverse frontend:
@@ -380,18 +382,66 @@ logitA <- glm(mortality_general ~ gender + age,
 summary(logitA)
 ```
 
-b. *neural network* Divide the table into training table (60) and test table (25).
+b. *neural network* Randomly divide the table into training (60 rows) and test table (25 rows). The each input has two variables, i.e., gender and age, and output is one categorical variable (dead or alive). Multiple types of layers were tried to find the ombination resulting most accurate prediction. From trial and error approach, two layers are used here to obtain a **accuracy of 72%**. First `linear` layer is uesd to divide input into 8 categories, and the second `relu` layer divide output from last layer into 4 categories which is then divided to 2 categories (desired results).
 
 ```{r}
 library(keras)
-install_keras()
+
+
 # divide the table
 o_train <- sample(seq(1,85,1),60)
-flu_admissions_t <- collect(flu_admissions)
-t_train <- flu_admissions_t[o_train,]
-t_test <- flu_admissions_t[-o_train,]
+flu_admissions_t <- collect(flu_admissions) %>%
+  select(mortality_general, gender, age) %>%
+  mutate(mortality_general = ifelse(mortality_general,1,0),
+         gender = ifelse(gender =="M",1,0))
+
+# c <- as.matrix(flu_admissions_t )
+x_train <- as.matrix(flu_admissions_t[o_train,2:3])
+# y_train <- as.matrix(flu_admissions_t[o_train,1])
+y_train <- array(flu_admissions_t$mortality_general[o_train]) %>%
+  to_categorical(2)
+
+x_test <- as.matrix(flu_admissions_t[-o_train,2:3])
+# y_test <- as.matrix(flu_admissions_t[-o_train,1])
+y_test <- array(flu_admissions_t$mortality_general[-o_train]) %>%
+  to_categorical(2)
+
+# Disconnect the database, from now on, connection not required
+dbDisconnect(con)
+
+mlogit <- keras_model_sequential()
+mlogit %>% 
+  layer_dense(units = 4, activation = 'linear', input_shape = c(2)) %>% 
+  layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 4, activation = 'relu', input_shape = c(2)) %>%
+  layer_dropout(rate = 0.4) %>%
+  # layer_dense(units = 10, activation = 'relu', input_shape = c(2)) %>% 
+  # layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 2, activation = 'softmax', input_shape = c(2))
+summary(mlogit)
+
+# compile model
+mlogit %>% compile(
+  loss = 'categorical_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+
+# fit model
+mlogit_history <- mlogit %>% fit(
+  x_train, y_train,
+  epochs = 20, batch_size = NULL,
+  validation_split = 0.2
+)
 
 
-model <- keras_model_sequential() 
+# Evaluate model performance on the test data:
+mlogit %>% evaluate(x_test, y_test)
 ```
 
+## 5. Conclusion
+There are 85 patients were admitted because of influenza-related reason, and two approaches are used to predict the mortality of influenza patients with personal data of these 85 patients, i.e., gender and age. From the logistic regression, the 30-day mortality can be caculated as:
+
+`30-days mortality = -6.49018 + 0.08287 &times; age + 1.28955 &times; the patient is male`
+
+And the Neural Network model can predict with an accuracy of 72%.

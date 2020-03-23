@@ -377,6 +377,7 @@ summary {
 <li><a href="#data-preparation">2. Data Preparation</a></li>
 <li><a href="#data-visualization">3. Data Visualization</a></li>
 <li><a href="#analytics">4. Analytics</a></li>
+<li><a href="#conclusion">5. Conclusion</a></li>
 </ul></li>
 </ul>
 </div>
@@ -407,6 +408,7 @@ summary {
 <!-- or maybe influenza? -->
 <div id="introduction" class="section level2">
 <h2>1. Introduction</h2>
+<p>The COVID-19 has made headlines in recent weeks and been regarded as an epidemic hitting countries around the world. To March 22, 2020, there has been more than 2 millions people diagnosed as COVID-19 and more than 24,000 death because of this virus. Many people compared this virus with flu, which has already caused an estimated 19 million illnesses in the U.S. alone from CDC estimation. This project aims to investigate influenza patients information and maybe create models with these data to predict future 30-days mortality of influenza patients.</p>
 </div>
 <div id="data-preparation" class="section level2">
 <h2>2. Data Preparation</h2>
@@ -414,12 +416,12 @@ summary {
 <pre class="r"><code>library(DBI)
 library(RPostgreSQL)
 library(tidyverse)</code></pre>
-<pre><code>## ── Attaching packages ──────────────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
+<pre><code>## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
 <pre><code>## ✓ ggplot2 3.2.1     ✓ purrr   0.3.3
 ## ✓ tibble  2.1.3     ✓ dplyr   0.8.4
 ## ✓ tidyr   1.0.2     ✓ stringr 1.4.0
 ## ✓ readr   1.3.1     ✓ forcats 0.4.0</code></pre>
-<pre><code>## ── Conflicts ─────────────────────────────────────────────────── tidyverse_conflicts() ──
+<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 ## x dplyr::filter() masks stats::filter()
 ## x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(lubridate)</code></pre>
@@ -491,70 +493,80 @@ dbListTables(con)</code></pre>
 ##  [85] &quot;chartevents_75&quot;     &quot;chartevents_76&quot;     &quot;chartevents_77&quot;    
 ##  [88] &quot;chartevents_78&quot;     &quot;chartevents_79&quot;     &quot;chartevents_80&quot;    
 ##  [91] &quot;chartevents_81&quot;     &quot;chartevents_82&quot;     &quot;chartevents_83&quot;    
-##  [94] &quot;dbplyr_341&quot;         &quot;chartevents_84&quot;     &quot;chartevents_85&quot;    
-##  [97] &quot;chartevents_86&quot;     &quot;chartevents_87&quot;     &quot;chartevents_88&quot;    
-## [100] &quot;chartevents_89&quot;     &quot;chartevents_90&quot;     &quot;chartevents_91&quot;    
-## [103] &quot;chartevents_92&quot;     &quot;chartevents_93&quot;     &quot;chartevents_94&quot;    
-## [106] &quot;chartevents_95&quot;     &quot;chartevents_96&quot;     &quot;chartevents_97&quot;    
-## [109] &quot;chartevents_98&quot;     &quot;chartevents_99&quot;     &quot;chartevents_100&quot;   
-## [112] &quot;chartevents_101&quot;    &quot;chartevents_102&quot;    &quot;chartevents_103&quot;   
-## [115] &quot;chartevents_104&quot;    &quot;chartevents_105&quot;    &quot;chartevents_106&quot;   
-## [118] &quot;chartevents_107&quot;    &quot;chartevents_108&quot;    &quot;chartevents_109&quot;   
-## [121] &quot;chartevents_110&quot;    &quot;chartevents_111&quot;    &quot;chartevents_112&quot;   
-## [124] &quot;chartevents_113&quot;    &quot;chartevents_114&quot;    &quot;chartevents_115&quot;   
-## [127] &quot;chartevents_116&quot;    &quot;chartevents_117&quot;    &quot;chartevents_118&quot;   
-## [130] &quot;chartevents_119&quot;    &quot;chartevents_120&quot;    &quot;chartevents_121&quot;   
-## [133] &quot;chartevents_122&quot;    &quot;chartevents_123&quot;    &quot;chartevents_124&quot;   
-## [136] &quot;chartevents_125&quot;    &quot;chartevents_126&quot;    &quot;chartevents_127&quot;   
-## [139] &quot;dbplyr_3141&quot;        &quot;chartevents_128&quot;    &quot;chartevents_129&quot;   
-## [142] &quot;chartevents_130&quot;    &quot;chartevents_131&quot;    &quot;chartevents_132&quot;   
-## [145] &quot;chartevents_133&quot;    &quot;chartevents_134&quot;    &quot;chartevents_135&quot;   
-## [148] &quot;chartevents_136&quot;    &quot;chartevents_137&quot;    &quot;chartevents_138&quot;   
-## [151] &quot;chartevents_139&quot;    &quot;chartevents_140&quot;    &quot;chartevents_141&quot;   
-## [154] &quot;chartevents_142&quot;    &quot;chartevents_143&quot;    &quot;chartevents_144&quot;   
-## [157] &quot;chartevents_145&quot;    &quot;chartevents_146&quot;    &quot;chartevents_147&quot;   
-## [160] &quot;chartevents_148&quot;    &quot;chartevents_149&quot;    &quot;chartevents_150&quot;   
-## [163] &quot;chartevents_151&quot;    &quot;chartevents_152&quot;    &quot;chartevents_153&quot;   
-## [166] &quot;chartevents_154&quot;    &quot;chartevents_155&quot;    &quot;chartevents_156&quot;   
-## [169] &quot;chartevents_157&quot;    &quot;chartevents_158&quot;    &quot;chartevents_159&quot;   
-## [172] &quot;chartevents_160&quot;    &quot;chartevents_161&quot;    &quot;chartevents_162&quot;   
-## [175] &quot;chartevents_163&quot;    &quot;chartevents_164&quot;    &quot;chartevents_165&quot;   
-## [178] &quot;chartevents_166&quot;    &quot;chartevents_167&quot;    &quot;chartevents_168&quot;   
-## [181] &quot;chartevents_169&quot;    &quot;chartevents_170&quot;    &quot;chartevents_171&quot;   
-## [184] &quot;dbplyr_3158&quot;        &quot;chartevents_172&quot;    &quot;chartevents_173&quot;   
-## [187] &quot;chartevents_174&quot;    &quot;chartevents_175&quot;    &quot;chartevents_176&quot;   
-## [190] &quot;chartevents_177&quot;    &quot;chartevents_178&quot;    &quot;chartevents_179&quot;   
-## [193] &quot;chartevents_180&quot;    &quot;chartevents_181&quot;    &quot;chartevents_182&quot;   
-## [196] &quot;chartevents_183&quot;    &quot;chartevents_184&quot;    &quot;chartevents_185&quot;   
-## [199] &quot;chartevents_186&quot;    &quot;chartevents_187&quot;    &quot;chartevents_188&quot;   
-## [202] &quot;chartevents_189&quot;    &quot;chartevents_190&quot;    &quot;chartevents_191&quot;   
-## [205] &quot;chartevents_192&quot;    &quot;chartevents_193&quot;    &quot;chartevents_194&quot;   
-## [208] &quot;chartevents_195&quot;    &quot;chartevents_196&quot;    &quot;chartevents_197&quot;   
-## [211] &quot;chartevents_198&quot;    &quot;chartevents_199&quot;    &quot;chartevents_200&quot;   
-## [214] &quot;chartevents_201&quot;    &quot;chartevents_202&quot;    &quot;chartevents_203&quot;   
-## [217] &quot;chartevents_204&quot;    &quot;chartevents_205&quot;    &quot;chartevents_206&quot;   
-## [220] &quot;chartevents_207&quot;    &quot;cptevents&quot;          &quot;datetimeevents&quot;    
-## [223] &quot;diagnoses_icd&quot;      &quot;drgcodes&quot;           &quot;d_cpt&quot;             
-## [226] &quot;d_icd_diagnoses&quot;    &quot;d_icd_procedures&quot;   &quot;d_items&quot;           
-## [229] &quot;d_labitems&quot;         &quot;icustays&quot;           &quot;inputevents_cv&quot;    
-## [232] &quot;prescriptions&quot;      &quot;procedureevents_mv&quot; &quot;procedures_icd&quot;    
-## [235] &quot;services&quot;           &quot;transfers&quot;          &quot;dbplyr_1685&quot;       
-## [238] &quot;dbplyr_415&quot;         &quot;dbplyr_769&quot;         &quot;dbplyr_382&quot;        
-## [241] &quot;dbplyr_277&quot;         &quot;dbplyr_401&quot;         &quot;dbplyr_312&quot;        
-## [244] &quot;dbplyr_336&quot;         &quot;dbplyr_347&quot;         &quot;dbplyr_998&quot;        
-## [247] &quot;dbplyr_1016&quot;        &quot;dbplyr_1261&quot;        &quot;dbplyr_1279&quot;       
-## [250] &quot;dbplyr_2489&quot;        &quot;dbplyr_217&quot;         &quot;dbplyr_225&quot;        
-## [253] &quot;dbplyr_1461&quot;        &quot;dbplyr_2592&quot;        &quot;dbplyr_2077&quot;       
-## [256] &quot;dbplyr_2401&quot;        &quot;dbplyr_272&quot;         &quot;dbplyr_240&quot;        
-## [259] &quot;dbplyr_244&quot;         &quot;dbplyr_258&quot;         &quot;dbplyr_006&quot;        
-## [262] &quot;dbplyr_1429&quot;        &quot;dbplyr_096&quot;         &quot;dbplyr_115&quot;        
-## [265] &quot;dbplyr_445&quot;         &quot;dbplyr_466&quot;         &quot;dbplyr_2645&quot;       
-## [268] &quot;dbplyr_080&quot;         &quot;dbplyr_590&quot;         &quot;dbplyr_082&quot;        
-## [271] &quot;dbplyr_1528&quot;        &quot;dbplyr_1529&quot;        &quot;dbplyr_1531&quot;       
-## [274] &quot;dbplyr_1632&quot;        &quot;dbplyr_1666&quot;        &quot;dbplyr_1700&quot;       
-## [277] &quot;dbplyr_1702&quot;        &quot;dbplyr_3912&quot;        &quot;icd&quot;               
-## [280] &quot;dbplyr_392&quot;         &quot;dbplyr_4133&quot;        &quot;dbplyr_073&quot;        
-## [283] &quot;dbplyr_002&quot;</code></pre>
+##  [94] &quot;chartevents_84&quot;     &quot;chartevents_85&quot;     &quot;chartevents_86&quot;    
+##  [97] &quot;chartevents_87&quot;     &quot;chartevents_88&quot;     &quot;chartevents_89&quot;    
+## [100] &quot;chartevents_90&quot;     &quot;chartevents_91&quot;     &quot;chartevents_92&quot;    
+## [103] &quot;chartevents_93&quot;     &quot;chartevents_94&quot;     &quot;chartevents_95&quot;    
+## [106] &quot;chartevents_96&quot;     &quot;chartevents_97&quot;     &quot;chartevents_98&quot;    
+## [109] &quot;chartevents_99&quot;     &quot;chartevents_100&quot;    &quot;chartevents_101&quot;   
+## [112] &quot;chartevents_102&quot;    &quot;chartevents_103&quot;    &quot;chartevents_104&quot;   
+## [115] &quot;chartevents_105&quot;    &quot;chartevents_106&quot;    &quot;chartevents_107&quot;   
+## [118] &quot;chartevents_108&quot;    &quot;chartevents_109&quot;    &quot;chartevents_110&quot;   
+## [121] &quot;chartevents_111&quot;    &quot;chartevents_112&quot;    &quot;chartevents_113&quot;   
+## [124] &quot;chartevents_114&quot;    &quot;chartevents_115&quot;    &quot;chartevents_116&quot;   
+## [127] &quot;chartevents_117&quot;    &quot;chartevents_118&quot;    &quot;chartevents_119&quot;   
+## [130] &quot;chartevents_120&quot;    &quot;chartevents_121&quot;    &quot;chartevents_122&quot;   
+## [133] &quot;chartevents_123&quot;    &quot;chartevents_124&quot;    &quot;chartevents_125&quot;   
+## [136] &quot;chartevents_126&quot;    &quot;chartevents_127&quot;    &quot;dbplyr_3141&quot;       
+## [139] &quot;chartevents_128&quot;    &quot;chartevents_129&quot;    &quot;chartevents_130&quot;   
+## [142] &quot;chartevents_131&quot;    &quot;chartevents_132&quot;    &quot;chartevents_133&quot;   
+## [145] &quot;chartevents_134&quot;    &quot;chartevents_135&quot;    &quot;chartevents_136&quot;   
+## [148] &quot;chartevents_137&quot;    &quot;chartevents_138&quot;    &quot;chartevents_139&quot;   
+## [151] &quot;chartevents_140&quot;    &quot;chartevents_141&quot;    &quot;chartevents_142&quot;   
+## [154] &quot;chartevents_143&quot;    &quot;chartevents_144&quot;    &quot;chartevents_145&quot;   
+## [157] &quot;chartevents_146&quot;    &quot;chartevents_147&quot;    &quot;chartevents_148&quot;   
+## [160] &quot;chartevents_149&quot;    &quot;chartevents_150&quot;    &quot;chartevents_151&quot;   
+## [163] &quot;chartevents_152&quot;    &quot;chartevents_153&quot;    &quot;chartevents_154&quot;   
+## [166] &quot;chartevents_155&quot;    &quot;chartevents_156&quot;    &quot;chartevents_157&quot;   
+## [169] &quot;chartevents_158&quot;    &quot;chartevents_159&quot;    &quot;chartevents_160&quot;   
+## [172] &quot;chartevents_161&quot;    &quot;chartevents_162&quot;    &quot;chartevents_163&quot;   
+## [175] &quot;chartevents_164&quot;    &quot;chartevents_165&quot;    &quot;chartevents_166&quot;   
+## [178] &quot;chartevents_167&quot;    &quot;chartevents_168&quot;    &quot;chartevents_169&quot;   
+## [181] &quot;chartevents_170&quot;    &quot;chartevents_171&quot;    &quot;dbplyr_3158&quot;       
+## [184] &quot;chartevents_172&quot;    &quot;chartevents_173&quot;    &quot;chartevents_174&quot;   
+## [187] &quot;chartevents_175&quot;    &quot;chartevents_176&quot;    &quot;chartevents_177&quot;   
+## [190] &quot;chartevents_178&quot;    &quot;chartevents_179&quot;    &quot;chartevents_180&quot;   
+## [193] &quot;chartevents_181&quot;    &quot;chartevents_182&quot;    &quot;chartevents_183&quot;   
+## [196] &quot;chartevents_184&quot;    &quot;chartevents_185&quot;    &quot;chartevents_186&quot;   
+## [199] &quot;chartevents_187&quot;    &quot;chartevents_188&quot;    &quot;chartevents_189&quot;   
+## [202] &quot;chartevents_190&quot;    &quot;chartevents_191&quot;    &quot;chartevents_192&quot;   
+## [205] &quot;chartevents_193&quot;    &quot;chartevents_194&quot;    &quot;chartevents_195&quot;   
+## [208] &quot;chartevents_196&quot;    &quot;chartevents_197&quot;    &quot;chartevents_198&quot;   
+## [211] &quot;chartevents_199&quot;    &quot;chartevents_200&quot;    &quot;chartevents_201&quot;   
+## [214] &quot;chartevents_202&quot;    &quot;chartevents_203&quot;    &quot;chartevents_204&quot;   
+## [217] &quot;chartevents_205&quot;    &quot;chartevents_206&quot;    &quot;chartevents_207&quot;   
+## [220] &quot;cptevents&quot;          &quot;datetimeevents&quot;     &quot;diagnoses_icd&quot;     
+## [223] &quot;drgcodes&quot;           &quot;d_cpt&quot;              &quot;d_icd_diagnoses&quot;   
+## [226] &quot;d_icd_procedures&quot;   &quot;d_items&quot;            &quot;d_labitems&quot;        
+## [229] &quot;icustays&quot;           &quot;inputevents_cv&quot;     &quot;prescriptions&quot;     
+## [232] &quot;procedureevents_mv&quot; &quot;procedures_icd&quot;     &quot;services&quot;          
+## [235] &quot;transfers&quot;          &quot;dbplyr_1685&quot;        &quot;dbplyr_415&quot;        
+## [238] &quot;dbplyr_769&quot;         &quot;dbplyr_382&quot;         &quot;dbplyr_277&quot;        
+## [241] &quot;dbplyr_401&quot;         &quot;dbplyr_312&quot;         &quot;dbplyr_336&quot;        
+## [244] &quot;dbplyr_347&quot;         &quot;dbplyr_998&quot;         &quot;dbplyr_1016&quot;       
+## [247] &quot;dbplyr_1261&quot;        &quot;dbplyr_1279&quot;        &quot;dbplyr_2489&quot;       
+## [250] &quot;dbplyr_217&quot;         &quot;dbplyr_225&quot;         &quot;dbplyr_1461&quot;       
+## [253] &quot;dbplyr_2592&quot;        &quot;dbplyr_2077&quot;        &quot;dbplyr_2401&quot;       
+## [256] &quot;dbplyr_272&quot;         &quot;dbplyr_240&quot;         &quot;dbplyr_244&quot;        
+## [259] &quot;dbplyr_258&quot;         &quot;dbplyr_006&quot;         &quot;dbplyr_1429&quot;       
+## [262] &quot;dbplyr_096&quot;         &quot;dbplyr_115&quot;         &quot;dbplyr_445&quot;        
+## [265] &quot;dbplyr_466&quot;         &quot;dbplyr_2645&quot;        &quot;dbplyr_1528&quot;       
+## [268] &quot;dbplyr_1529&quot;        &quot;dbplyr_1531&quot;        &quot;dbplyr_1632&quot;       
+## [271] &quot;dbplyr_1666&quot;        &quot;dbplyr_1700&quot;        &quot;dbplyr_1702&quot;       
+## [274] &quot;dbplyr_3912&quot;        &quot;dbplyr_392&quot;         &quot;dbplyr_4133&quot;       
+## [277] &quot;dbplyr_4352&quot;        &quot;dbplyr_4377&quot;        &quot;dbplyr_4403&quot;       
+## [280] &quot;dbplyr_4441&quot;        &quot;dbplyr_4466&quot;        &quot;dbplyr_4479&quot;       
+## [283] &quot;dbplyr_4526&quot;        &quot;dbplyr_4557&quot;        &quot;dbplyr_4581&quot;       
+## [286] &quot;dbplyr_4596&quot;        &quot;dbplyr_4597&quot;        &quot;dbplyr_4610&quot;       
+## [289] &quot;dbplyr_4611&quot;        &quot;dbplyr_002&quot;         &quot;dbplyr_082&quot;        
+## [292] &quot;dbplyr_073&quot;         &quot;dbplyr_216&quot;         &quot;dbplyr_054&quot;        
+## [295] &quot;dbplyr_311&quot;         &quot;dbplyr_082&quot;         &quot;dbplyr_154&quot;        
+## [298] &quot;dbplyr_1005&quot;        &quot;dbplyr_1031&quot;        &quot;dbplyr_1142&quot;       
+## [301] &quot;dbplyr_1253&quot;        &quot;dbplyr_1363&quot;        &quot;dbplyr_1501&quot;       
+## [304] &quot;dbplyr_356&quot;         &quot;dbplyr_1624&quot;        &quot;dbplyr_1743&quot;       
+## [307] &quot;dbplyr_432&quot;         &quot;dbplyr_2047&quot;        &quot;dbplyr_2030&quot;       
+## [310] &quot;dbplyr_2164&quot;        &quot;dbplyr_2182&quot;        &quot;dbplyr_2200&quot;       
+## [313] &quot;dbplyr_073&quot;         &quot;icd&quot;                &quot;dbplyr_054&quot;</code></pre>
 <p>The table <code>d_icd_diagnoses</code> stores all types of diagnosis and corresponding codes, from which the influenza-related diagnosis are extracted.</p>
 <pre class="r"><code># Connect to the admissions table
 Admissions &lt;- tbl(con, &quot;admissions&quot;)
@@ -991,8 +1003,10 @@ library(gridExtra)</code></pre>
 </div>
 <div id="analytics" class="section level2">
 <h2>4. Analytics</h2>
-<p><em>Logistic Regression</em> Here we try to predict the 30-day mortality by using the gender and age of the patients. The <code>ethnicity</code> and <code>principal_dx</code> are not considered because most of the patients are white and the influenza is not the number#1 diagnosis, which makes both variable not statistically significant. The 30-days mortality can be calculated as:</p>
-<p>30-days mortality = -6.49018 + 0.08287 × age + 1.28955 × the patient is male</p>
+<ol style="list-style-type: lower-alpha">
+<li><em>Logistic Regression</em> Here we try to predict the 30-day mortality by using the gender and age of the patients. The <code>ethnicity</code> and <code>principal_dx</code> are not considered because most of the patients are white and the influenza is not the number#1 diagnosis, which makes both variable not statistically significant. The 30-days mortality can be calculated as:</li>
+</ol>
+<p><code>30-days mortality = -6.49018 + 0.08287 &amp;times; age + 1.28955 &amp;times; the patient is male</code></p>
 <pre class="r"><code>flu_admissions$gender &lt;- factor(flu_admissions$gender)
 flu_admissions$principal_dx &lt;- factor(flu_admissions$principal_dx)
 flu_admissions$mortality_general &lt;- factor(flu_admissions$mortality_general )
@@ -1025,6 +1039,89 @@ summary(logitA)</code></pre>
 ## AIC: 95.889
 ## 
 ## Number of Fisher Scoring iterations: 5</code></pre>
+<ol start="2" style="list-style-type: lower-alpha">
+<li><em>neural network</em> Randomly divide the table into training (60 rows) and test table (25 rows). The each input has two variables, i.e., gender and age, and output is one categorical variable (dead or alive). Multiple types of layers were tried to find the ombination resulting most accurate prediction. From trial and error approach, two layers are used here to obtain a <strong>accuracy of 72%</strong>. First <code>linear</code> layer is uesd to divide input into 8 categories, and the second <code>relu</code> layer divide output from last layer into 4 categories which is then divided to 2 categories (desired results).</li>
+</ol>
+<pre class="r"><code>library(keras)
+
+
+# divide the table
+o_train &lt;- sample(seq(1,85,1),60)
+flu_admissions_t &lt;- collect(flu_admissions) %&gt;%
+  select(mortality_general, gender, age) %&gt;%
+  mutate(mortality_general = ifelse(mortality_general,1,0),
+         gender = ifelse(gender ==&quot;M&quot;,1,0))
+
+# c &lt;- as.matrix(flu_admissions_t )
+x_train &lt;- as.matrix(flu_admissions_t[o_train,2:3])
+# y_train &lt;- as.matrix(flu_admissions_t[o_train,1])
+y_train &lt;- array(flu_admissions_t$mortality_general[o_train]) %&gt;%
+  to_categorical(2)
+
+x_test &lt;- as.matrix(flu_admissions_t[-o_train,2:3])
+# y_test &lt;- as.matrix(flu_admissions_t[-o_train,1])
+y_test &lt;- array(flu_admissions_t$mortality_general[-o_train]) %&gt;%
+  to_categorical(2)
+
+# Disconnect the database, from now on, connection not required
+dbDisconnect(con)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>mlogit &lt;- keras_model_sequential()
+mlogit %&gt;% 
+  layer_dense(units = 4, activation = 'linear', input_shape = c(2)) %&gt;% 
+  layer_dropout(rate = 0.4) %&gt;%
+  layer_dense(units = 4, activation = 'relu', input_shape = c(2)) %&gt;%
+  layer_dropout(rate = 0.4) %&gt;%
+  # layer_dense(units = 10, activation = 'relu', input_shape = c(2)) %&gt;% 
+  # layer_dropout(rate = 0.4) %&gt;%
+  layer_dense(units = 2, activation = 'softmax', input_shape = c(2))
+summary(mlogit)</code></pre>
+<pre><code>## Model: &quot;sequential&quot;
+## ________________________________________________________________________________
+## Layer (type)                        Output Shape                    Param #     
+## ================================================================================
+## dense (Dense)                       (None, 4)                       12          
+## ________________________________________________________________________________
+## dropout (Dropout)                   (None, 4)                       0           
+## ________________________________________________________________________________
+## dense_1 (Dense)                     (None, 4)                       20          
+## ________________________________________________________________________________
+## dropout_1 (Dropout)                 (None, 4)                       0           
+## ________________________________________________________________________________
+## dense_2 (Dense)                     (None, 2)                       10          
+## ================================================================================
+## Total params: 42
+## Trainable params: 42
+## Non-trainable params: 0
+## ________________________________________________________________________________</code></pre>
+<pre class="r"><code># compile model
+mlogit %&gt;% compile(
+  loss = 'categorical_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+
+# fit model
+mlogit_history &lt;- mlogit %&gt;% fit(
+  x_train, y_train,
+  epochs = 20, batch_size = NULL,
+  validation_split = 0.2
+)
+
+
+# Evaluate model performance on the test data:
+mlogit %&gt;% evaluate(x_test, y_test)</code></pre>
+<pre><code>## $loss
+## [1] 9.349303
+## 
+## $accuracy
+## [1] 0.72</code></pre>
+</div>
+<div id="conclusion" class="section level2">
+<h2>5. Conclusion</h2>
+<p>There are 85 patients were admitted because of influenza-related reason, and two approaches are used to predict the mortality of influenza patients with personal data of these 85 patients, i.e., gender and age. From the logistic regression, the 30-day mortality can be caculated as:</p>
+<p><code>30-days mortality = -6.49018 + 0.08287 &amp;times; age + 1.28955 &amp;times; the patient is male</code></p>
+<p>And the Neural Network model can predict with an accuracy of 72%.</p>
 </div>
 </div>
 
