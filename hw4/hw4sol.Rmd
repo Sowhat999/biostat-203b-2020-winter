@@ -1,0 +1,447 @@
+---
+title: "Biostat 203B Homework 4"
+author: Burson Tang UID#305068045
+subtitle: Due Mar 20 @ 11:59PM
+output:
+  # ioslides_presentation: default
+  html_document:
+    toc: true
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Task
+
+In this assignment, you are to write a report analyzing the electronic health record (EHR) data MIMIC-III. You report will demostrate your knowledge of working with PostgreSQL database, data visualization, and commonly used analytical methods such as logistic regression and neural network. Your report should include at least following parts:  
+
+1. An informative title. For example, _30-Day Mortality Rate of Myocardia Infarction Patients Admitted to CCU_.  
+
+2. Introduction. Describe the MIMIC-III data set and what research hypothesis/goal you are to address using this data.
+
+3. Data preparation. Create a study cohort from MIMIC-III corresponding to your research hypothesis/goal. See the examplary code below. Use a CONSORT flow diagram to summarize your steps to create the cohort.
+
+4. Data visualization. Use visualization to summarize the cohort you created. 
+
+5. Analytics. Use at least two analytical approaches to address your research hypothesis/goal. For example, we can use (1) logistic regression and (2) neural network to build a predictive model for the 30-day mortality rate of patients admitted into CCU and compare their predictive performance. Summarize your results in graphs.
+
+6. Conclusions. 
+
+# Learning resources about analyzing EHR data
+
+- _Secondary Analysis of Electronic Health Records_: <https://link.springer.com/book/10.1007/978-3-319-43742-2> 
+
+- _The Book of OHDSI_: <https://ohdsi.github.io/TheBookOfOhdsi/>. 
+
+- The GitHub repository <https://github.com/MIT-LCP/mimic-code> contains some code examples for working with the MIMIC-III data. Following sample code derives from <https://github.com/MIT-LCP/mimic-code/blob/master/tutorials/dplyr-frontend/intro.md>. 
+
+
+*Report starts here*
+
+# Title: Mortality Rate of Influenza Patients Admitted to the Hospital
+<!-- or maybe influenza? -->
+## 1. Introduction
+
+The COVID-19 has made headlines in recent weeks and been regarded as an epidemic hitting countries around the world. To March 22, 2020, there has been more than 2 millions people diagnosed as COVID-19 and more than 24,000 death because of this virus. Many people compared this virus with flu, which has already caused an estimated 19 million illnesses in the U.S. alone from CDC estimation. This project aims to investigate influenza patients information and maybe create models with these data to predict future 30-days mortality of influenza patients.
+
+## 2. Data Preparation
+
+Load database libraries and the tidyverse frontend:
+```{r}
+library(DBI)
+library(RPostgreSQL)
+library(tidyverse)
+library(lubridate)
+library(scales)
+```
+
+Connect to PostgresSQL datanase: Credentials for using PostgreSQL database. We are going to use username `postgres` with password `postgres` to access the `mimic` database in the schemee `mimiciii`. 
+```{r}
+# Load configuration settings
+dbdriver <- 'PostgreSQL'
+#host  <- '127.0.0.1'
+#port  <- '5432'
+user  <- 'postgres'
+password <- 'postgres'
+dbname <- 'mimic'
+schema <- 'mimiciii'
+# Connect to the database using the configuration settings
+con <- dbConnect(RPostgreSQL::PostgreSQL(), 
+                 dbname = dbname, 
+                 #host = host, 
+                 #port = port, 
+                 user = user, 
+                 password = password)
+# Set the default schema
+dbExecute(con, paste("SET search_path TO ", schema, sep=" "))
+con
+
+# List tables in the `mimic` database:
+dbListTables(con)
+```
+
+
+The table `d_icd_diagnoses` stores all types of diagnosis and corresponding codes, from which the influenza-related diagnosis are extracted.
+```{r}
+# Connect to the admissions table
+Admissions <- tbl(con, "admissions")
+Admissions %>% print(width = Inf)
+# Pneu <- Admission %>% filter(str_detect(tolower(DIAGNOSIS), "PNEUMONIA"))
+
+tbl(con, "d_icd_diagnoses")%>% summarize(n())
+
+# Find all diagnoses code for influenza
+tbl(con, "d_icd_diagnoses") %>%
+  filter(str_detect(long_title, "influenza")) %>% print(width = Inf) ->
+  flu_codes
+```
+
+`diagnoses_icd` table stores the diagnosis of each admission. We use semi_join() to keep the rows in `diagnoses_icd` that match the codes related to influenza:
+```{r}
+# get all the admission because of flue via semi_join
+tbl(con, "diagnoses_icd") %>%
+  semi_join(flu_codes, by = "icd9_code") %>%
+  print() -> flu_adm
+```
+
+According to the documentation for the `patients` table, patients can have different diagnosis, and thus influenza may not be listed as the principal diagnosis. In order to focus on patients for whom influenza was central to their hospitalization, we will include records with influenza in any of the first five diagnosis positions according to the `seq_num` field. To avoid duplicate admissions, only the first influenza diagnosis for each admission is used in the analysis. At the end, a logical variable indicating the influenza is the principal diagonosis or not (the influenza is regarded as the principal diagnosis only if records have `seq_num` equal to one).
+```{r}
+# Use filter to only include records with flu in top five diagnosis positions
+flu_adm %>%
+  filter(seq_num <= 5) %>%
+  group_by(subject_id, hadm_id) %>%
+  # top_n(1, wt = seq_num) %>% #  not working. bug? use following as workaround
+  filter(min_rank(seq_num) <= 1) %>%
+  ungroup() %>%
+  select(subject_id, hadm_id, icd9_code, seq_num) %>%
+  # check if the flu is the principal diagnosis
+  mutate(principal_dx = (seq_num == 1)) %>%
+  select(-seq_num) %>%
+  print() -> flu_adm
+```
+
+`inner_join` the table of admission `admissions` with the table of influenza-caused admission to pull the admitting and discharge time and other necessary information. Also join the `patients` table to get more detailed demographic information of the patients admitted into hospital. 
+
+Here the `hospital_expire_flag` and `expire_flag` are logical variables indicating whether the patient died (1) or not (0). Create more intelligible variable names for them.
+
+```{r}
+select(tbl(con, "admissions"), 
+       subject_id, hadm_id, admittime, dischtime, hospital_expire_flag, ethnicity)%>%
+  inner_join(flu_adm, by = c("subject_id", "hadm_id")) %>%
+  left_join(
+    select(tbl(con, "patients"), -row_id, -dod_hosp, -dod_ssn),
+    by = "subject_id") %>%
+  mutate(mortality_in_hospital = hospital_expire_flag==1,
+         mortality_general = expire_flag==1) %>%
+  select(-hospital_expire_flag, -expire_flag) %>%
+  print() -> flu_admissions
+```
+
+Calculate the age for all patients in the table. According to the documentation for the patients table, the patients of 90 years and older had their ages artficially inflated, and thus removed from the table. Some important variables are moved to the front.
+
+*Note* Many mortality indicators are missing, due to neither the hospital database nor the social security database having a record of these patients’ deaths, i.e., they patients are still alive. This is also verified by the aforementioned morality variables, and thus the NA values are converted to FALSE values. The code used for verification is commented out.
+
+```{r}
+## Code for verification
+# flu_admissions %>%
+#   mutate(tt_death = date_part("day", dod) - date_part("day", dischtime))  %>% 
+#   mutate(verification = !is.na(tt_death)) ->c
+# (all(c$verification == c$mortality_general))
+
+flu_admissions %>%
+  mutate(tt_death = date_part("day", dod) - date_part("day", dischtime)) %>%
+  mutate(mortality_30 = ifelse(is.na(tt_death)||tt_death>30, F, T) ) %>%
+  mutate(age = date_part("year", admittime) - date_part("year", dob)) %>%
+  filter(age < 90) %>%
+  mutate(age = age - ifelse(
+    date_part("month", admittime) < date_part("month", dob) |
+      (
+        date_part("month", admittime) == date_part("month", dob) &
+          date_part("day", admittime) < date_part("day", dob)
+      ),
+    1,
+    0
+  )) %>%
+  select(-admittime, -dischtime, -dob, -dod, -tt_death) %>%
+  select(subject_id, hadm_id, age, mortality_general,
+         mortality_in_hospital, mortality_30, everything()) %>%
+  print() -> flu_admissions
+```
+
+CONSORT Flow Diagrams are generated for the flow of data preparation.
+
+```{r}
+library(shape)
+library(diagram)
+
+# set margins and multiplot
+par(mfrow = c(1, 1))
+par(mar = c(0, 0, 0, 0))
+
+# initialise a plot device
+openplotmat()
+
+# position of boxes
+num_of_boxes <- 5
+auto_coords = coordinates(num_of_boxes)
+vert_pos = rev(auto_coords[,1])
+box_pos <- matrix(nrow = num_of_boxes, ncol = 2, data = 0)
+box_pos[1,] = c(0.20, vert_pos[1]) # 1st box
+box_pos[2,] = c(0.70, vert_pos[1]) # 2nd box
+box_pos[3,] = c(0.70, vert_pos[2]-.05)
+box_pos[4,] = c(0.20, vert_pos[3]-.1) # 3rd box
+box_pos[5,] = c(0.20, vert_pos[4]-.2) # etc...
+
+
+# content of boxes
+box_content <- matrix(nrow = num_of_boxes, ncol = 1, data = 0)
+box_content[1] = "All patients in MIMIC-III \n n = 58,976" # 1st box
+box_content[2] = "All diagnosis in MIMIC-III \n n = 14567" # 2nd box
+box_content[3] = "Filter diagnosis of influenza \n n = 183" # 3rd box
+box_content[4] = "Filter influenza patients \n n = 85" # etc...
+box_content[5] = "Detail patients' information \n n = 85"
+
+# adjust the size of boxes to fit content
+box_x <- c(0.20, 0.20, 0.20, 0.20, 0.20)
+box_y <- c(0.07, 0.07, 0.07, 0.07, 0.07)
+# Draw the arrows
+straightarrow(from = box_pos[2,], to = box_pos[3,], lwd = 1)
+straightarrow(from = box_pos[3,], to = c(0.20, box_pos[3,2]), lwd = 1)
+straightarrow(from = box_pos[1,], to = box_pos[4,], lwd = 1)
+straightarrow(from = box_pos[4,], to = box_pos[5,], lwd = 1)
+
+# Draw the boxes
+for (i in 1:num_of_boxes) {
+  textrect(mid = box_pos[i,], radx = box_x[i], rady = box_y[i], 
+           lab = box_content[i], 
+           shadow.col = "grey")
+  }
+```
+
+## 3. Data Visualization
+
+Gender distribution of the influenza patients: the male patients number is more than twice as many as female ones.
+```{r}
+flu_admissions %>%  
+  # count male or female patients numbers
+  group_by(gender) %>%
+  summarise(count=n())%>%
+  
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(gender)) %>%
+  ggplot(aes(x = "", y= Prop, fill= gender)) + 
+  geom_bar(width=1, stat = "identity",color = "white")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+ 
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+```
+
+Age distribution of the influenza patients: Most of the patients admitted for influenza-related reasons are those older than 40 years old. Also with the increase of age, the mortality increases except for patients in 90s, the total number of which is too small.
+```{r}
+flu_admissions %>%
+  ggplot() +
+  geom_histogram(mapping = aes(x=age,y = (..count..)/sum(..count..),
+                               fill = mortality_30),
+           binwidth = 10, color = "white")+
+  scale_y_continuous(breaks = seq(0,.25,.025), labels = percent,
+                     name="Percentage")+
+  scale_x_continuous( breaks = seq(0,100,10), name = "Age")+
+  labs(fill = "30 days mortality")
+```
+
+Ethnicity: Most of the patients admitted for influenza is white, accounting for more than 70% of patients.
+```{r}
+flu_admissions %>%
+    group_by(ethnicity)  %>%
+  summarise(count=n()) %>%
+  mutate(Prop = count/sum(count))%>%
+  
+  ggplot() + 
+  geom_bar(mapping=aes(stringr::str_wrap(ethnicity,15), y = Prop),
+           stat = "identity", width=0.5)+
+  scale_y_continuous(breaks = seq(0,.7,.1),labels = percent)+
+  labs(x='Ethnicity', y='Count')+
+  coord_flip()
+```
+
+
+Morality: The general mortality plot is identical to the 30-days mortality plot, which means 39% of these patients died in 30-days after admission because of influenza-realted reason. And the in-hospital mortality is relatively low. Only 8% of these patients died in the hospital
+
+```{r}
+flu_admissions %>%
+  group_by(mortality_30) %>%
+  summarise(count = n()) %>%
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(mortality_30)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= mortality_30)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="", fill = "30 days mortality")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank()) -> p1
+
+flu_admissions %>%
+  group_by(mortality_in_hospital) %>%
+  summarise(count = n()) %>%
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(mortality_in_hospital)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= mortality_in_hospital)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="", fill = "Mortality in hospital")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank()) -> p2
+
+flu_admissions %>%
+  group_by(mortality_general) %>%
+  summarise(count = n()) %>%
+  # calculate percentage for label
+  mutate(Prop = count/sum(count)) %>%
+  
+  # fix the plotting order so I can make label in accordingly
+  arrange(desc(mortality_general)) %>%
+  
+  # Use percentage value as y values, and set stat as identity
+  ggplot(aes(x = "", y= Prop, fill= mortality_general)) +
+  
+  # separate pie chart segment with white lines
+  geom_bar(width = 1, color = "white",stat="identity")+
+  coord_polar(theta = 'y', direction = 1)+
+  
+  # add percentage labels on the pie charte
+  geom_text(aes(y = cumsum(Prop) - 0.5*Prop,  # label position
+            label = percent(Prop)), size=5)+ # label value and size
+  
+  # get rid of all the axis labels and ticks
+  theme_void()+
+  scale_x_discrete(breaks = NULL)+
+  labs(x="",y="", fill = "General mortality")+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank()) -> p3
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, nrow = 3)
+```
+
+## 4. Analytics
+
+a. *Logistic Regression* Here we try to predict the 30-day mortality by using the gender and age of the patients. The `ethnicity` and `principal_dx` are not considered because most of the patients are white and the influenza is not the number#1 diagnosis, which makes both variable not statistically significant. The 30-days mortality can be calculated as:
+
+`30-days mortality = -6.49018 + 0.08287 &times; age + 1.28955 &times; the patient is male`
+
+
+```{r}
+flu_admissions$gender <- factor(flu_admissions$gender)
+flu_admissions$principal_dx <- factor(flu_admissions$principal_dx)
+flu_admissions$mortality_general <- factor(flu_admissions$mortality_general )
+
+logitA <- glm(mortality_general ~ gender + age, 
+              data = flu_admissions, family = "binomial")
+
+summary(logitA)
+```
+
+b. *neural network* Randomly divide the table into training (60 rows) and test table (25 rows). The each input has two variables, i.e., gender and age, and output is one categorical variable (dead or alive). Multiple types of layers were tried to find the ombination resulting most accurate prediction. From trial and error approach, two layers are used here to obtain a **accuracy of 72%**. First `linear` layer is uesd to divide input into 8 categories, and the second `relu` layer divide output from last layer into 4 categories which is then divided to 2 categories (desired results).
+
+```{r}
+library(keras)
+
+
+# divide the table
+o_train <- sample(seq(1,85,1),60)
+flu_admissions_t <- collect(flu_admissions) %>%
+  select(mortality_general, gender, age) %>%
+  mutate(mortality_general = ifelse(mortality_general,1,0),
+         gender = ifelse(gender =="M",1,0))
+
+# c <- as.matrix(flu_admissions_t )
+x_train <- as.matrix(flu_admissions_t[o_train,2:3])
+# y_train <- as.matrix(flu_admissions_t[o_train,1])
+y_train <- array(flu_admissions_t$mortality_general[o_train]) %>%
+  to_categorical(2)
+
+x_test <- as.matrix(flu_admissions_t[-o_train,2:3])
+# y_test <- as.matrix(flu_admissions_t[-o_train,1])
+y_test <- array(flu_admissions_t$mortality_general[-o_train]) %>%
+  to_categorical(2)
+
+# Disconnect the database, from now on, connection not required
+dbDisconnect(con)
+
+mlogit <- keras_model_sequential()
+mlogit %>% 
+  layer_dense(units = 4, activation = 'linear', input_shape = c(2)) %>% 
+  layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 4, activation = 'relu', input_shape = c(2)) %>%
+  layer_dropout(rate = 0.4) %>%
+  # layer_dense(units = 10, activation = 'relu', input_shape = c(2)) %>% 
+  # layer_dropout(rate = 0.4) %>%
+  layer_dense(units = 2, activation = 'softmax', input_shape = c(2))
+summary(mlogit)
+
+# compile model
+mlogit %>% compile(
+  loss = 'categorical_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+
+# fit model
+mlogit_history <- mlogit %>% fit(
+  x_train, y_train,
+  epochs = 20, batch_size = NULL,
+  validation_split = 0.2
+)
+
+
+# Evaluate model performance on the test data:
+mlogit %>% evaluate(x_test, y_test)
+```
+
+## 5. Conclusion
+There are 85 patients were admitted because of influenza-related reason, and two approaches are used to predict the mortality of influenza patients with personal data of these 85 patients, i.e., gender and age. From the logistic regression, the 30-day mortality can be caculated as:
+
+`30-days mortality = -6.49018 + 0.08287 &times; age + 1.28955 &times; the patient is male`
+
+And the Neural Network model can predict with an accuracy of 72%.
