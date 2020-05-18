@@ -97,7 +97,7 @@ translate <- function(x) {
 
 ## Read "real-time" data from GitHub 
 # Read Coronavirus Data from JHU SSE GitHub repo: <https://github.com/CSSEGISandData/2019-nCoV>
-confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
+confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv",
                        col_names = T,
                        cols(.default = "d",
                             `Province/State` = "c",
@@ -108,7 +108,7 @@ confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19
                values_to = "confirmed") %>%
   mutate(Date = (mdy(Date))) # convert string to date-time
 
-recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv",
+recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv",
                        col_names = T,
                        cols(.default = "d",
                             `Province/State` = "c",
@@ -118,7 +118,7 @@ recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19
                values_to = "recovered") %>%
   mutate(Date = mdy(Date))
 
-death <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv",
+death <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv",
                    col_names = T,
                    cols(.default = "d",
                         `Province/State` = "c",
@@ -150,19 +150,31 @@ ncov_tbl <- confirmed %>%
 
 # Get table for Coronavirus situation in China
 ncov_ch_tbl <- ncov_tbl %>%
-  filter(`Country/Region` %in% c("Mainland China",
-                                 "Macau", "Hong Kong", "Taiwan"))
+  filter(`Country/Region` %in% c("China", "Taiwan*")) %>%
+  # replace the NA State as Taiwan
+  mutate("Province/State" = str_replace_na(`Province/State`,
+                                           replacement = "Taiwan"))
 
 # Read china map geometries
 chn_map <- st_read("bou2_4p.shp", as_tibble = TRUE) %>%
-  mutate(NAME = iconv(NAME, from = "GBK"),
+  mutate(NAME = iconv(NAME, from = "GBK", to = "UTF-8"),
          BOU2_4M_ = as.integer(BOU2_4M_),
          BOU2_4M_ID = as.integer(BOU2_4M_ID)) %>%
   mutate(NAME = str_replace_na(NAME, replacement = "澳门特别行政区"))
 
+# Check if there are about 34 provinces in China
+# chn_map %>%
+#   count(NAME) %>%
+#   print(n = Inf)
+
 # Read china geometries from table? Not working because of the geometry class
 # chn_prov <- read_csv("chn_prov.csv")
 
+# Translate the Chinese name to English using pre-set table
 chn_prov <- chn_map %>%
   count(NAME) %>%
-  mutate(NAME_ENG = translate(NAME)) # translate function is vectorized
+  # unnmae the traslated vector 
+  mutate(NAME_ENG = unname(translate(NAME))) # translate function is vectorized
+
+
+

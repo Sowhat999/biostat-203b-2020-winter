@@ -3,8 +3,8 @@
 library(shiny)
 
 # Source helpers ----
-source("helpers.R")
-
+# source("helpers.R")
+eval(parse("helpers.R", encoding="UTF-8"))
 # Define UI for application in navbarPage ----------
 ui <- navbarPage(
     title = "Conronavirus Visualization App",
@@ -18,7 +18,7 @@ ui <- navbarPage(
                      
                      dateInput("Date_chm", label = "Date to Display",
                                # use the day before today cause time dif
-                               value = as.character(Sys.Date()-days(1)),
+                               value = as.character(Sys.Date()-days(10)),
                                format = "yyyy-mm-dd"
                      ),
                      
@@ -148,19 +148,27 @@ ui <- navbarPage(
 # Define server logic for plots and tables ------------
 server <- function(input, output) {
     
-    # plotdate <- "2020-02-18"
-    # case <- "confirmed"
+    # # For debug
+    plotdate <- "2020-05-08"
+    case <- "confirmed"
     
     # # Distribution map in china
     output$ChinaMap <- renderPlot({
-        ncov_tbl %>%
-            filter(`Country/Region` %in% c("Mainland China", "Macau", 
-                                           "Hong Kong", "Taiwan")) %>%
+        if (is.na(input$Date_chm)){
+            print('something')} else{
+                print(input$Date_chm)
+                print(input$Case_chm)
+            }
+        ncov_ch_tbl %>%
+            # filter(`Country/Region` %in% c("China", "Taiwan*")) %>%
+            # # replace the NA State as Taiwan
+            # mutate("Province/State" = str_replace_na(`Province/State`,
+            #                                          replacement = "Taiwan"))%>%
             # filter(Date == plotdate, Case == case) %>%
-            filter(Date == input$Date_chm, 
-                   Case == input$Case_chm) %>%
-            group_by(`Province/State`) %>%
-            top_n(1, Date) %>% # take the latest count on that date
+            filter(Date == input$Date_chm, #"2020-04-02"
+                   Case == input$Case_chm) %>% #"confirmed"
+            # group_by(`Province/State`) %>%
+            # top_n(1, Date) %>% # take the latest count on that date
             right_join(chn_prov, by = c("Province/State" = "NAME_ENG")) %>%
             ggplot() +
             geom_sf(mapping = aes(fill = Count, geometry = geometry)) +
@@ -183,8 +191,7 @@ server <- function(input, output) {
     # cumulative count
     output$ChinaTS_cum <- renderPlot({
         ncov_tbl %>%
-            filter(`Country/Region` %in% c("Mainland China", "Macau",
-                                           "Hong Kong", "Taiwan")) %>%
+            filter(`Country/Region` %in% c("China", "Taiwan*")) %>%
             # group_by(input$date, input$Case) %>%
             group_by(Date, Case) %>%
             summarise(total_count = sum(Count)) %>%
@@ -212,8 +219,7 @@ server <- function(input, output) {
     output$ChinaTS_inc <- renderPlot({
         # Calcuate the daily increment
         b <- ncov_tbl %>%
-            filter(`Country/Region` %in% c("Mainland China", "Macau", 
-                                           "Hong Kong", "Taiwan")) %>%
+            filter(`Country/Region` %in% c("China", "Taiwan*")) %>%
             # group_by(input$date, input$Case) %>%
             group_by(Date, Case) %>%
             summarise(total_count = sum(Count)) %>%
@@ -304,8 +310,7 @@ server <- function(input, output) {
     output$Barplot <- renderPlot({
         # date = Sys.Date() - days(1)
         ncov_tbl %>%
-            filter(`Country/Region` %!in% c("Mainland China", "Macau", 
-                                           "Hong Kong", "Taiwan"), 
+            filter(`Country/Region` %!in% c("China", "Taiwan*"), 
                    `Date` == input$Date_bp) %>%
                    # `Date` == Sys.Date()-days(1)) %>%
             # group_by(`Province/State`) %>%

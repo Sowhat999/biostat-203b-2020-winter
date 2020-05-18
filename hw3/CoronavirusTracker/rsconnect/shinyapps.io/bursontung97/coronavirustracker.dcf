@@ -5,9 +5,9 @@ account: bursontung97
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1881426
-bundleId: 2839285
+bundleId: 3163352
 url: https://bursontung97.shinyapps.io/coronavirustracker/
-when: 1582960461.85058
+when: 1589832740.47916
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: chn_prov.csv|ncov_tbl.csv
+ignoredFiles: app_trial.R
