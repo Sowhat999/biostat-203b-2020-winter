@@ -5,6 +5,7 @@ library(wesanderson)
 library(scales)
 library(leaflet)
 library(RColorBrewer)
+library(stringr)
 
 # set color for different case
 palette(brewer.pal(n = 8, name = "Dark2"))
@@ -134,7 +135,69 @@ ncov_tbl <- confirmed %>%
   left_join(death) %>%
   pivot_longer(confirmed:death, 
                names_to = "Case", 
-               values_to = "Count")
+               values_to = "Count") %>%
+  mutate(Count = ifelse(is.na(Count), 0 , Count))
+
+# # Summarize country- and province-wise cases and calculate increment
+# ncov_tbl_country <- ncov_tbl %>% 
+#   group_by(Date, Case, `Country/Region`, `Province/State`) %>% 
+#   summarise(total_count = sum(Count)) %>%
+#   mutate(increment = NA)
+# 
+# locations = unique(ncov_tbl_country[ ,c("Country/Region","Province/State")])
+# 
+# for (i in 1:nrow(locations)){
+#       if (is.na(locations[1, ]$`Province/State`)){
+#         condition_tmp <- ncov_tbl_country$`Country/Region` == locations[1, ]$`Country/Region`
+#       } else{
+#         condition_tmp <- ncov_tbl_country$`Country/Region` == locations[1, ]$`Country/Region` &
+#           ncov_tbl_country$`Province/State` == locations[1, ]$`Province/State`
+#       }
+#       condition_tmp[is.na(condition_tmp)] <- FALSE
+#       total_count_tmp <- ncov_tbl_country[
+#         condition_tmp,
+#         "total_count"
+#         ]
+# 
+#       increment_tmp <- rbind(
+#         total_count_tmp[1:3,1],
+#         total_count_tmp[4:nrow(total_count_tmp),1] - total_count_tmp[1:(nrow(total_count_tmp)-3),1]
+#         )
+# 
+#       ncov_tbl_country[
+#         condition_tmp,
+#         "increment"
+#         ] <- increment_tmp
+# }
+
+# Summarize country-wise cases and calculate increment
+ncov_tbl_country <- ncov_tbl %>%
+  group_by(Date, Case, `Country/Region`) %>%
+  summarise(total_count = sum(Count)) %>%
+  mutate(increment = NA)
+
+countries = unique(ncov_tbl_country$`Country/Region`)
+
+for(country in countries){
+  total_count_tmp <- ncov_tbl_country[
+    ncov_tbl_country$`Country/Region` == country,
+    "total_count"
+    ]
+
+  increment_tmp <- rbind(
+    total_count_tmp[1:3,1],
+    total_count_tmp[4:nrow(total_count_tmp),1] - total_count_tmp[1:(nrow(total_count_tmp)-3),1]
+    )
+
+  ncov_tbl_country[
+    ncov_tbl_country$`Country/Region` == country,
+    "increment"
+    ] <- increment_tmp
+}
+
+ncov_tbl_country[
+  ncov_tbl_country$increment < 0, "increment"
+  ] <- 0
   
 
 ## Read data from organized table for Coronavirus

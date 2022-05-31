@@ -16,13 +16,17 @@ ui <- navbarPage(
                  sidebarPanel(
                      titlePanel("Coronavirus Case Distribution Map"),
                      
-                     dateInput("Date_chm", label = "Date to Display",
+                     # selectInput("Case_type_c", label = "Data Type",
+                     #             choices = c("Cumulative" = "cumulative",
+                     #                         "Incremental" = "incremental")),
+                     
+                     dateInput("Date_chm", label = "Date",
                                # use the day before today cause time dif
-                               value = as.character(Sys.Date()-days(10)),
+                               value = "2020-05-20", #as.character(Sys.Date()-days(10)),
                                format = "yyyy-mm-dd"
                      ),
                      
-                     selectInput("Case_chm", label = "Case to display",
+                     selectInput("Case_chm", label = "Case Type",
                                  choices = c("Confirmed" = "confirmed",
                                              "Death" = "death",
                                              "Recovered" = "recovered")
@@ -44,7 +48,7 @@ ui <- navbarPage(
              ## Plot the time series of Coronavirus
              wellPanel(
                  titlePanel("Coronavirus Case Timeseries"),
-                 checkboxGroupInput("TS_Case", "choose cases to plot",
+                 checkboxGroupInput("TS_Case", "Choose cases to plot",
                                     choices = c("Confirmed" = "confirmed",
                                                 "Death" = "death",
                                                 "Recovered" = "recovered"),
@@ -98,13 +102,16 @@ ui <- navbarPage(
                  sidebarPanel(titlePanel("World Wide Coronavirus Case Distribution"),
                               helpText("Change the selection to start ploting"),
                               helpText("Click the circle on the map for detials"),
-                              dateInput("Date_w", label = "Date to Display",
+                              # selectInput("Case_type_w", label = "Data Type",
+                              #             choices = c("Cumulative" = "cumulative",
+                              #                         "Incremental" = "incremental")),
+                              dateInput("Date_w", label = "Date",
                                         # use the day before today cause time dif
                                         value = as.character(Sys.Date()-days(1)),
                                         format = "yyyy-mm-dd"
                                         ),
                           
-                              selectInput("Case_w", label = "Case to display",
+                              selectInput("Case_w", label = "Case Type",
                                           choices = c("Confirmed" = "confirmed",
                                                       "Death" = "death",
                                                       "Recovered" = "recovered")
@@ -124,14 +131,14 @@ ui <- navbarPage(
                      
                      dateInput("Date_bp", label = "Date to Display",
                                # use the day before today cause time dif
-                               value = as.character(Sys.Date()-days(1)),
+                               value = "2021-01-12",
                                format = "yyyy-mm-dd"
                      ),
                      br(),
                      br(),
                      sliderInput("range_bp",
                                  "Plot country with historical confirmed case in the range",
-                                 min = 1, max = 5000, value = c(200,3000)),
+                                 min = 1, max = 90000000, value = c(10000000,90000000)), # min = 1, max = 5000, value = c(200,3000)),
                      # make the space height as small as 5px, shrink space gray area
                      style = "height: 380px; padding: 5px"
                  ),
@@ -154,11 +161,14 @@ server <- function(input, output) {
     
     # # Distribution map in china
     output$ChinaMap <- renderPlot({
-        if (is.na(input$Date_chm)){
-            print('something')} else{
-                print(input$Date_chm)
-                print(input$Case_chm)
-            }
+        # # print input date and case
+        # if (is.na(input$Date_chm)){
+        #     print('something')
+        #     }
+        # else{
+        #         print(input$Date_chm)
+        #         print(input$Case_chm)
+        #     }
         ncov_ch_tbl %>%
             # filter(`Country/Region` %in% c("China", "Taiwan*")) %>%
             # # replace the NA State as Taiwan
@@ -184,7 +194,10 @@ server <- function(input, output) {
             # #scale_fill_brewer(palette = "Dark2") +
             theme_bw() +
             theme(text = element_text(size=20))+
-            labs(title = str_c(input$Case_chm, " cases"), subtitle = input$Date_chm)
+            labs(title = str_c(
+                "Daily Increased ", str_to_title(input$Case_chm), " Cases"
+                ), 
+                 subtitle = input$Date_chm)
     })
     
     ## time series of different cases in China
@@ -217,19 +230,8 @@ server <- function(input, output) {
     
     # daily increased count for different cases
     output$ChinaTS_inc <- renderPlot({
-        # Calcuate the daily increment
-        b <- ncov_tbl %>%
+        ncov_tbl_country %>% 
             filter(`Country/Region` %in% c("China", "Taiwan*")) %>%
-            # group_by(input$date, input$Case) %>%
-            group_by(Date, Case) %>%
-            summarise(total_count = sum(Count)) %>%
-            mutate(increment = NA)
-        # b <- c %>% mutate(trial = ifelse(Date > "2020-01-22" | Date < Sys.Date(),  ))
-        b$increment[4:(nrow(b)-3)] = b$total_count[4:nrow(b)] - 
-            b$total_count[1:(nrow(b)-3)]
-        
-        # Plot
-        b %>%
             filter(Case %in% c(input$TS_Case)) %>%
             ggplot() +
             geom_line(mapping = aes(x = Date, y = increment, color = Case), 
@@ -247,10 +249,6 @@ server <- function(input, output) {
             theme(text = element_text(size=20))+
             labs(title = "Time Series of Daily Increment")
     })
-    
-    # output$ChinaTbl <- renderTable({
-    #     ncov_ch_tbl[, c(1,5,6,7)]
-    # })
     
     output$table_CH <- DT::renderDataTable(DT::datatable({
         data <- ncov_ch_tbl[, c(1,5,6,7)]
@@ -273,27 +271,14 @@ server <- function(input, output) {
         ncov_tbl[ncov_tbl$Date == input$Date_w &
                      ncov_tbl$Case == input$Case_w, ]
     })
+    
     cl_maker <- reactive(unname(cl_case[input$Case_w]))
     
-    
-    
     output$mymap <- renderLeaflet({
-        
-        # Tried to change everytime
-        # cl_maker <- unname(cl_case[input$Case_w])
-        # filteredData <- ncov_tbl[ncov_tbl$Date == input$Date_w &
-        #                              ncov_tbl$Case == input$Case_w, ]
-        
         leaflet() %>%
             addProviderTiles(providers$Stamen.TonerLite,
                              options = providerTileOptions(noWrap = TRUE))%>%
             setView(lng = 112.85, lat = 33.45, zoom = 4) #%>%
-        # leafletProxy("mymap", data = filteredData) %>%
-        # clearShapes() %>%
-        # addCircles(lat = ~Lat, lng = ~Long,
-        #            radius = ~log(Count)*30000, weight = 1,
-        #            color = "red",fillColor = cl_maker, fillOpacity = 0.7)
-        
     })
     
     observe({
@@ -303,7 +288,15 @@ server <- function(input, output) {
             addCircles(lat = ~Lat, lng = ~Long, radius = ~log(Count)*30000,
                        weight = 1, 
                        color = "red",fillColor = cl_maker(), fillOpacity = 0.7,
-                       popup = ~paste("Total ",input$Case_w," number:",Count)
+                       popup = ~paste(input$Case_w," number: ", Count, 
+                                      " at ",
+                                      ifelse(is.na(`Province/State`), "", `Province/State`),
+                                      ' ', `Country/Region`)
+                       # popup = ~paste(input$Case_type_w,
+                       #                " ",input$Case_w," number: ", Count, 
+                       #                " at ",
+                       #                ifelse(is.na(`Province/State`), "", `Province/State`),
+                       #                ' ', `Country/Region`)
             )
     })
     
@@ -312,8 +305,6 @@ server <- function(input, output) {
         ncov_tbl %>%
             filter(`Country/Region` %!in% c("China", "Taiwan*"), 
                    `Date` == input$Date_bp) %>%
-                   # `Date` == Sys.Date()-days(1)) %>%
-            # group_by(`Province/State`) %>%
             group_by(`Country/Region`) %>%
             filter(sum(Count) > input$range_bp[1] & sum(Count) < input$range_bp[2]) %>%
             # summarise(total_count = sum(Count)) %>%
